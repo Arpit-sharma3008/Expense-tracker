@@ -1,0 +1,18 @@
+{
+  "name": "SpendWise — Smart Expense Tracker",
+  "short_name": "SpendWise",
+  "description": "Track expenses, manage debts, and take control of your finances.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f9fc",
+  "theme_color": "#4f6ef7",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
