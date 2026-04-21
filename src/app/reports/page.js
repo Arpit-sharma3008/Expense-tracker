@@ -12,14 +12,6 @@ export default function ReportsPage() {
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
   );
 
-  const months = useMemo(() => {
-    const set = new Set();
-    expenses.forEach((e) => {
-      const parts = e.date.split("-");
-      set.add(`${parts[0]}-${parts[1]}`);
-    });
-    return [...set].sort().reverse();
-  }, [expenses]);
 
   const monthExpenses = useMemo(() => {
     return expenses.filter((e) => e.date.startsWith(selectedMonth));
@@ -164,13 +156,11 @@ export default function ReportsPage() {
         <div className={styles.controls}>
           <div className={styles.monthSelect}>
             <label>Select Month</label>
-            <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}>
-              {months.map((m) => {
-                const [y, mo] = m.split("-");
-                const label = new Date(y, mo - 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-                return <option key={m} value={m}>{label}</option>;
-              })}
-            </select>
+            <input 
+              type="month" 
+              value={selectedMonth} 
+              onChange={(e) => setSelectedMonth(e.target.value)} 
+            />
           </div>
           <button className="btn btn-primary btn-lg" onClick={handleDownload} disabled={downloading}>
             {downloading ? (
