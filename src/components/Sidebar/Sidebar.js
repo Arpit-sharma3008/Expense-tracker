@@ -8,8 +8,10 @@ import styles from "./Sidebar.module.css";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: "📊" },
+  { href: "/incomes", label: "Incomes", icon: "💵" },
   { href: "/expenses", label: "Expenses", icon: "💸" },
   { href: "/debts", label: "Money Manager", icon: "💰" },
+  { href: "/goals", label: "Savings Goals", icon: "🎯" },
   { href: "/subscriptions", label: "Subscriptions", icon: "🔁" },
   { href: "/budgets", label: "Budgets", icon: "🎯" },
   { href: "/reports", label: "Reports", icon: "📄" },

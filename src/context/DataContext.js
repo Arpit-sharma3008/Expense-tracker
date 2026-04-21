@@ -30,6 +30,8 @@ export function DataProvider({ children }) {
   const [credits, setCredits] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [budgets, setBudgets] = useState([]);
+  const [incomes, setIncomes] = useState([]);
+  const [savingsGoals, setSavingsGoals] = useState([]);
   const [categories] = useState(DEFAULT_CATEGORIES);
   const [dataLoading, setDataLoading] = useState(true);
 
@@ -40,6 +42,7 @@ export function DataProvider({ children }) {
     description: row.description,
     amount: parseFloat(row.amount),
     date: row.date,
+    receiptUrl: row.receipt_url,
     createdAt: row.created_at,
   });
 
@@ -91,6 +94,8 @@ export function DataProvider({ children }) {
       setCredits([]);
       setSubscriptions([]);
       setBudgets([]);
+      setIncomes([]);
+      setSavingsGoals([]);
       setDataLoading(false);
       return;
     }
@@ -98,20 +103,60 @@ export function DataProvider({ children }) {
     const fetchAll = async () => {
       setDataLoading(true);
       try {
-        const [expRes, debtRes, creditRes, subRes, budgetRes] = await Promise.all([
+        const [expRes, debtRes, creditRes, subRes, budgetRes, incomeRes, goalRes] = await Promise.all([
           supabase.from("expenses").select("*").eq("user_id", user.id).order("date", { ascending: false }),
           supabase.from("debts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
           supabase.from("credits").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
           supabase.from("subscriptions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
           supabase.from("budgets").select("*").eq("user_id", user.id),
+          supabase.from("incomes").select("*").eq("user_id", user.id).order("date", { ascending: false }),
+          supabase.from("savings_goals").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
         ]);
 
         // Map DB snake_case to camelCase
         setExpenses((expRes.data || []).map(mapExpense));
         setDebts((debtRes.data || []).map(mapDebt));
         setCredits((creditRes.data || []).map(mapCredit));
-        setSubscriptions((subRes.data || []).map(mapSubscription));
+        
+        const loadedSubs = (subRes.data || []).map(mapSubscription);
+        setSubscriptions(loadedSubs);
+        
         setBudgets((budgetRes.data || []).map(mapBudget));
+        setIncomes((incomeRes.data || []).map(mapIncome));
+        setSavingsGoals((goalRes.data || []).map(mapSavingsGoal));
+
+        // ---- AUTO-SUBSCRIPTIONS ----
+        // Check if any active subscriptions have a billing date that is today or past
+        const today = new Date().toISOString().split("T")[0];
+        
+        for (const sub of loadedSubs) {
+          if (sub.active && sub.nextBillingDate && sub.nextBillingDate <= today) {
+            // Auto-log expense
+            const expenseCat = DEFAULT_CATEGORIES.find(c => c.name === "Subscriptions");
+            await supabase.from("expenses").insert({
+              user_id: user.id,
+              description: `Auto-billed: ${sub.name}`,
+              amount: sub.amount,
+              category_id: expenseCat ? expenseCat.id : "cat-10",
+              date: sub.nextBillingDate,
+            });
+
+            // Calculate next billing date
+            const dateObj = new Date(sub.nextBillingDate);
+            if (sub.frequency === "monthly") dateObj.setMonth(dateObj.getMonth() + 1);
+            if (sub.frequency === "yearly") dateObj.setFullYear(dateObj.getFullYear() + 1);
+            if (sub.frequency === "weekly") dateObj.setDate(dateObj.getDate() + 7);
+            
+            const nextDateStr = dateObj.toISOString().split("T")[0];
+            
+            // Update subscription
+            await supabase.from("subscriptions").update({ next_billing_date: nextDateStr }).eq("id", sub.id);
+            
+            // If we generated expenses, we should trigger a refetch of expenses and subscriptions to keep state fresh.
+            // But to avoid complexity, we can just do a fast local state update or simple refetch.
+          }
+        }
+
       } catch (err) {
         console.error("Error fetching data:", err);
       } finally {
@@ -131,6 +176,7 @@ export function DataProvider({ children }) {
       amount: expense.amount,
       category_id: expense.categoryId,
       date: expense.date,
+      receipt_url: expense.receiptUrl || null,
     }).select().single();
 
     if (!error && data) {
@@ -150,6 +196,7 @@ export function DataProvider({ children }) {
     if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
     if (updates.categoryId !== undefined) dbUpdates.category_id = updates.categoryId;
     if (updates.date !== undefined) dbUpdates.date = updates.date;
+    if (updates.receiptUrl !== undefined) dbUpdates.receipt_url = updates.receiptUrl;
 
     await supabase.from("expenses").update(dbUpdates).eq("id", id);
     setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...updates } : e)));
@@ -300,6 +347,98 @@ export function DataProvider({ children }) {
     }
   }, [user]);
 
+  /* ======== INCOMES ======== */
+  const addIncome = useCallback(async (income) => {
+    if (!user) return;
+    const { data, error } = await supabase.from("incomes").insert({
+      user_id: user.id,
+      source: income.source,
+      amount: income.amount,
+      date: income.date,
+      notes: income.notes || "",
+    }).select().single();
+
+    if (!error && data) {
+      setIncomes((prev) => [mapIncome(data), ...prev]);
+    }
+    return data;
+  }, [user]);
+
+  const updateIncome = useCallback(async (id, updates) => {
+    const dbUpdates = {};
+    if (updates.source !== undefined) dbUpdates.source = updates.source;
+    if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
+    if (updates.date !== undefined) dbUpdates.date = updates.date;
+    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+
+    await supabase.from("incomes").update(dbUpdates).eq("id", id);
+    setIncomes((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)));
+  }, []);
+
+  const deleteIncome = useCallback(async (id) => {
+    await supabase.from("incomes").delete().eq("id", id);
+    setIncomes((prev) => prev.filter((i) => i.id !== id));
+  }, []);
+
+  /* ======== SAVINGS GOALS ======== */
+  const addSavingsGoal = useCallback(async (goal) => {
+    if (!user) return;
+    const { data, error } = await supabase.from("savings_goals").insert({
+      user_id: user.id,
+      name: goal.name,
+      target_amount: goal.targetAmount,
+      current_amount: goal.currentAmount || 0,
+      target_date: goal.targetDate || null,
+      icon: goal.icon || "🎯",
+      color: goal.color || "#4F6EF7",
+    }).select().single();
+
+    if (!error && data) {
+      setSavingsGoals((prev) => [...prev, mapSavingsGoal(data)]);
+    }
+    return data;
+  }, [user]);
+
+  const updateSavingsGoal = useCallback(async (id, updates) => {
+    const dbUpdates = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.targetAmount !== undefined) dbUpdates.target_amount = updates.targetAmount;
+    if (updates.currentAmount !== undefined) dbUpdates.current_amount = updates.currentAmount;
+    if (updates.targetDate !== undefined) dbUpdates.target_date = updates.targetDate;
+    if (updates.icon !== undefined) dbUpdates.icon = updates.icon;
+    if (updates.color !== undefined) dbUpdates.color = updates.color;
+
+    await supabase.from("savings_goals").update(dbUpdates).eq("id", id);
+    setSavingsGoals((prev) => prev.map((g) => (g.id === id ? { ...g, ...updates } : g)));
+  }, []);
+
+  const deleteSavingsGoal = useCallback(async (id) => {
+    await supabase.from("savings_goals").delete().eq("id", id);
+    setSavingsGoals((prev) => prev.filter((g) => g.id !== id));
+  }, []);
+
+  /* ======== STORAGE HELPERS ======== */
+  const uploadReceipt = useCallback(async (file) => {
+    if (!user || !file) return null;
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+    
+    const { data, error } = await supabase.storage
+      .from("receipts")
+      .upload(fileName, file);
+      
+    if (error) {
+      console.error("Error uploading receipt:", error);
+      return null;
+    }
+    
+    const { data: publicUrlData } = supabase.storage
+      .from("receipts")
+      .getPublicUrl(fileName);
+      
+    return publicUrlData.publicUrl;
+  }, [user]);
+
   /* ======== HELPERS ======== */
   const getCategoryById = useCallback(
     (id) => categories.find((c) => c.id === id),
@@ -330,6 +469,8 @@ export function DataProvider({ children }) {
     credits,
     subscriptions,
     budgets,
+    incomes,
+    savingsGoals,
     categories,
     dataLoading,
     addExpense,
@@ -346,6 +487,13 @@ export function DataProvider({ children }) {
     updateSubscription,
     deleteSubscription,
     setBudget: setBudgetValue,
+    addIncome,
+    updateIncome,
+    deleteIncome,
+    addSavingsGoal,
+    updateSavingsGoal,
+    deleteSavingsGoal,
+    uploadReceipt,
     getCategoryById,
     getExpensesByMonth,
     getTotalByCategory,

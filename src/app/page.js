@@ -11,7 +11,7 @@ import {
 import styles from "./page.module.css";
 
 export default function Dashboard() {
-  const { expenses, debts, credits, subscriptions, categories, getCategoryById } = useData();
+  const { expenses, debts, credits, subscriptions, incomes, categories, getCategoryById, addExpense } = useData();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const now = new Date();
@@ -30,6 +30,11 @@ export default function Dashboard() {
     const lastTotal = lastMonth.reduce((s, e) => s + e.amount, 0);
     const change = lastTotal > 0 ? ((thisTotal - lastTotal) / lastTotal) * 100 : 0;
 
+    const thisMonthIncomes = incomes.filter((i) => i.date.startsWith(monthPrefix));
+    const thisMonthTotalIncome = thisMonthIncomes.reduce((s, i) => s + i.amount, 0);
+    const cashFlow = thisMonthTotalIncome - thisTotal;
+    const savingsRate = thisMonthTotalIncome > 0 ? (cashFlow / thisMonthTotalIncome) * 100 : 0;
+
     const totalDebt = debts.reduce((s, d) => s + d.remainingBalance, 0);
     const pendingCredits = credits.reduce((s, c) => s + (c.totalAmount - c.receivedAmount), 0);
     const netPosition = pendingCredits - totalDebt;
@@ -37,13 +42,13 @@ export default function Dashboard() {
     const activeSubs = subscriptions.filter((s) => s.active);
     const monthlySubCost = activeSubs.reduce((s, sub) => s + sub.amount, 0);
 
-    const today = now.toISOString().split("T")[0];
-    const todayTotal = expenses
-      .filter((e) => e.date === today)
-      .reduce((s, e) => s + e.amount, 0);
-
-    return { thisTotal, lastTotal, change, totalDebt, pendingCredits, netPosition, monthlySubCost, todayTotal, txCount: thisMonth.length };
-  }, [expenses, debts, credits, subscriptions, monthPrefix, lastMonthPrefix]);
+    return { 
+      thisTotal, lastTotal, change, 
+      totalDebt, pendingCredits, netPosition, 
+      monthlySubCost, txCount: thisMonth.length,
+      thisMonthTotalIncome, cashFlow, savingsRate
+    };
+  }, [expenses, debts, credits, subscriptions, incomes, monthPrefix, lastMonthPrefix]);
 
   /* ---- Category Breakdown (Pie) ---- */
   const categoryData = useMemo(() => {
@@ -98,6 +103,31 @@ export default function Dashboard() {
 
   const formatCurrency = (v) => `₹${v.toLocaleString("en-IN")}`;
 
+  /* ---- Quick Add State ---- */
+  const [qaAmount, setQaAmount] = useState("");
+  const [qaDesc, setQaDesc] = useState("");
+  const [qaAdding, setQaAdding] = useState(false);
+
+  const handleQuickAdd = async (e) => {
+    e.preventDefault();
+    if (!qaAmount || !qaDesc) return;
+    setQaAdding(true);
+    
+    // Quick Add defaults to "Other" or finding a category based on words if we wanted to be smart
+    const defaultCat = categories.find(c => c.name === "Other")?.id || categories[0].id;
+    
+    await addExpense({
+      description: qaDesc,
+      amount: parseFloat(qaAmount),
+      categoryId: defaultCat,
+      date: new Date().toISOString().split("T")[0],
+    });
+    
+    setQaAmount("");
+    setQaDesc("");
+    setQaAdding(false);
+  };
+
   return (
     <>
       <Header
@@ -124,11 +154,11 @@ export default function Dashboard() {
           </div>
 
           <div className={styles.statCard}>
-            <div className={styles.statIcon}>📅</div>
+            <div className={styles.statIcon}>📈</div>
             <div className={styles.statContent}>
-              <span className={styles.statLabel}>Today</span>
-              <span className={styles.statValue}>{formatCurrency(stats.todayTotal)}</span>
-              <span className={styles.statMeta}>{stats.txCount} transactions this month</span>
+              <span className={styles.statLabel}>Cash Flow</span>
+              <span className={styles.statValue}>{formatCurrency(stats.cashFlow)}</span>
+              <span className={styles.statMeta}>{stats.savingsRate.toFixed(1)}% savings rate</span>
             </div>
           </div>
 
@@ -152,6 +182,31 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* ---- Quick Add Widget ---- */}
+        <form className={styles.quickAddWidget} onSubmit={handleQuickAdd}>
+          <div className={styles.qaHeader}>⚡ Quick Add Expense</div>
+          <div className={styles.qaInputs}>
+            <input 
+              type="number" 
+              placeholder="₹ Amount" 
+              value={qaAmount} 
+              onChange={e => setQaAmount(e.target.value)}
+              required 
+              min="1"
+            />
+            <input 
+              type="text" 
+              placeholder="What did you buy? (e.g., Coffee, Swiggy)" 
+              value={qaDesc} 
+              onChange={e => setQaDesc(e.target.value)}
+              required 
+            />
+            <button type="submit" disabled={qaAdding} className="btn btn-primary">
+              {qaAdding ? "..." : "Add"}
+            </button>
+          </div>
+        </form>
 
         {/* ---- Charts Row ---- */}
         <div className={styles.chartsRow}>

@@ -6,12 +6,15 @@ import { useData } from "@/context/DataContext";
 import styles from "./expenses.module.css";
 
 export default function ExpensesPage() {
-  const { expenses, categories, addExpense, deleteExpense, clearAllExpenses, getCategoryById } = useData();
+  const { expenses, categories, addExpense, deleteExpense, clearAllExpenses, getCategoryById, uploadReceipt } = useData();
   const [showForm, setShowForm] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [dateRange, setDateRange] = useState("this-month");
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [viewReceiptUrl, setViewReceiptUrl] = useState(null);
 
   /* Form state */
   const [form, setForm] = useState({
@@ -21,15 +24,25 @@ export default function ExpensesPage() {
     date: new Date().toISOString().split("T")[0],
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.description || !form.amount) return;
-    addExpense({
+    setIsSubmitting(true);
+    
+    let receiptUrl = null;
+    if (receiptFile) {
+      receiptUrl = await uploadReceipt(receiptFile);
+    }
+    
+    await addExpense({
       ...form,
       amount: parseFloat(form.amount),
+      receiptUrl,
     });
     setForm({ description: "", amount: "", categoryId: "cat-1", date: new Date().toISOString().split("T")[0] });
+    setReceiptFile(null);
     setShowForm(false);
+    setIsSubmitting(false);
   };
 
   /* Filter logic */
@@ -141,6 +154,15 @@ export default function ExpensesPage() {
                     <span className={styles.expName}>{exp.description}</span>
                     <span className={styles.expMeta}>{cat?.name} · {new Date(exp.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
                   </div>
+                  {exp.receiptUrl && (
+                    <button 
+                      className={styles.receiptBtn} 
+                      onClick={() => setViewReceiptUrl(exp.receiptUrl)} 
+                      title="View Receipt"
+                    >
+                      📎
+                    </button>
+                  )}
                   <span className={styles.expAmount}>-{formatCurrency(exp.amount)}</span>
                   <button className={styles.deleteBtn} onClick={() => deleteExpense(exp.id)} aria-label="Delete">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -203,9 +225,19 @@ export default function ExpensesPage() {
                   onChange={(e) => setForm({ ...form, date: e.target.value })}
                 />
               </label>
+              <label className={styles.field}>
+                <span>Receipt Image (Optional)</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setReceiptFile(e.target.files[0])}
+                />
+              </label>
               <div className={styles.formActions}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Add Expense</button>
+                <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                  {isSubmitting ? "Adding..." : "Add Expense"}
+                </button>
               </div>
             </form>
           </div>
@@ -232,6 +264,23 @@ export default function ExpensesPage() {
                 <button className="btn btn-danger" onClick={() => { clearAllExpenses(); setShowClearConfirm(false); }}>Yes, Clear All</button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---- View Receipt Modal ---- */}
+      {viewReceiptUrl && (
+        <div className={styles.modalOverlay} onClick={() => setViewReceiptUrl(null)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()} style={{ padding: "16px" }}>
+            <div className={styles.modalHeader} style={{ borderBottom: "none", padding: "0 0 16px 0" }}>
+              <h3>Receipt Image</h3>
+              <button className={styles.closeBtn} onClick={() => setViewReceiptUrl(null)}>×</button>
+            </div>
+            <img 
+              src={viewReceiptUrl} 
+              alt="Receipt" 
+              style={{ width: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: "8px" }} 
+            />
           </div>
         </div>
       )}

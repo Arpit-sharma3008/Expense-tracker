@@ -166,6 +166,20 @@
   color: var(--color-danger);
 }
 
+.receiptBtn {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  margin-right: var(--space-3);
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+}
+
+.receiptBtn:hover {
+  opacity: 1;
+}
+
 /* ---- Empty ---- */
 .empty {
   display: flex;

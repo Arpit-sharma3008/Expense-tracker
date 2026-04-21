@@ -65,14 +65,43 @@ CREATE TABLE IF NOT EXISTS credits (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. ENABLE ROW LEVEL SECURITY (each user sees only their data)
+-- 6. INCOMES TABLE
+CREATE TABLE IF NOT EXISTS incomes (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  source TEXT NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
+  notes TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 7. SAVINGS GOALS TABLE
+CREATE TABLE IF NOT EXISTS savings_goals (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  target_amount DECIMAL(12,2) NOT NULL,
+  current_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  target_date DATE,
+  icon TEXT DEFAULT '🎯',
+  color TEXT DEFAULT '#4F6EF7',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 8. EXPENSES ALTERATION (Add receipt_url)
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS receipt_url TEXT;
+
+-- 9. ENABLE ROW LEVEL SECURITY
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE debts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budgets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE incomes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE savings_goals ENABLE ROW LEVEL SECURITY;
 
--- 6. RLS POLICIES - Users can only CRUD their own data
+-- 10. RLS POLICIES - Users can only CRUD their own data
 CREATE POLICY "Users can view own expenses" ON expenses FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own expenses" ON expenses FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own expenses" ON expenses FOR UPDATE USING (auth.uid() = user_id);
@@ -98,10 +127,32 @@ CREATE POLICY "Users can insert own credits" ON credits FOR INSERT WITH CHECK (a
 CREATE POLICY "Users can update own credits" ON credits FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own credits" ON credits FOR DELETE USING (auth.uid() = user_id);
 
--- 7. INDEXES for performance
+CREATE POLICY "Users can view own incomes" ON incomes FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own incomes" ON incomes FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own incomes" ON incomes FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own incomes" ON incomes FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own savings_goals" ON savings_goals FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own savings_goals" ON savings_goals FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own savings_goals" ON savings_goals FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own savings_goals" ON savings_goals FOR DELETE USING (auth.uid() = user_id);
+
+-- 11. INDEXES for performance
 CREATE INDEX IF NOT EXISTS idx_expenses_user_date ON expenses(user_id, date DESC);
 CREATE INDEX IF NOT EXISTS idx_expenses_user_category ON expenses(user_id, category_id);
 CREATE INDEX IF NOT EXISTS idx_debts_user ON debts(user_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id);
 CREATE INDEX IF NOT EXISTS idx_budgets_user_month ON budgets(user_id, month);
 CREATE INDEX IF NOT EXISTS idx_credits_user ON credits(user_id);
+CREATE INDEX IF NOT EXISTS idx_incomes_user ON incomes(user_id);
+CREATE INDEX IF NOT EXISTS idx_savings_goals_user ON savings_goals(user_id);
+
+-- 12. STORAGE SETUP (Must be run in SQL Editor as well, or via UI)
+-- Create bucket if not exists (Note: In pure SQL, this might require postgres role permissions, but good for reference)
+INSERT INTO storage.buckets (id, name, public) VALUES ('receipts', 'receipts', true) ON CONFLICT (id) DO NOTHING;
+
+-- Storage RLS
+CREATE POLICY "Anyone can view receipts" ON storage.objects FOR SELECT USING (bucket_id = 'receipts');
+CREATE POLICY "Users can upload receipts" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'receipts' AND auth.uid() = owner);
+CREATE POLICY "Users can update own receipts" ON storage.objects FOR UPDATE USING (bucket_id = 'receipts' AND auth.uid() = owner);
+CREATE POLICY "Users can delete own receipts" ON storage.objects FOR DELETE USING (bucket_id = 'receipts' AND auth.uid() = owner);
