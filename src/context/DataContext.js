@@ -86,6 +86,26 @@ export function DataProvider({ children }) {
     createdAt: row.created_at,
   });
 
+  const mapIncome = (row) => ({
+    id: row.id,
+    source: row.source,
+    amount: parseFloat(row.amount),
+    date: row.date,
+    notes: row.notes,
+    createdAt: row.created_at,
+  });
+
+  const mapSavingsGoal = (row) => ({
+    id: row.id,
+    name: row.name,
+    targetAmount: parseFloat(row.target_amount),
+    currentAmount: parseFloat(row.current_amount),
+    targetDate: row.target_date,
+    icon: row.icon,
+    color: row.color,
+    createdAt: row.created_at,
+  });
+
   /* ---- Fetch all data when user logs in ---- */
   useEffect(() => {
     if (!user) {
