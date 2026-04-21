@@ -371,7 +371,13 @@ export function DataProvider({ children }) {
       notes: income.notes || "",
     }).select().single();
 
-    if (!error && data) {
+    if (error) {
+      console.error("Error adding income:", error);
+      alert("Database Error: You likely need to update your Supabase database schema. " + error.message);
+      return null;
+    }
+
+    if (data) {
       setIncomes((prev) => [mapIncome(data), ...prev]);
     }
     return data;
@@ -406,7 +412,13 @@ export function DataProvider({ children }) {
       color: goal.color || "#4F6EF7",
     }).select().single();
 
-    if (!error && data) {
+    if (error) {
+      console.error("Error adding savings goal:", error);
+      alert("Database Error: You likely need to update your Supabase database schema. " + error.message);
+      return null;
+    }
+
+    if (data) {
       setSavingsGoals((prev) => [...prev, mapSavingsGoal(data)]);
     }
     return data;
