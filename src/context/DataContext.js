@@ -170,16 +170,29 @@ export function DataProvider({ children }) {
   /* ======== EXPENSES ======== */
   const addExpense = useCallback(async (expense) => {
     if (!user) return;
-    const { data, error } = await supabase.from("expenses").insert({
+    
+    const payload = {
       user_id: user.id,
       description: expense.description,
       amount: expense.amount,
       category_id: expense.categoryId,
       date: expense.date,
-      receipt_url: expense.receiptUrl || null,
-    }).select().single();
+    };
+    
+    // Only add receipt_url if it exists, to prevent crashes if the user hasn't updated their DB schema
+    if (expense.receiptUrl) {
+      payload.receipt_url = expense.receiptUrl;
+    }
 
-    if (!error && data) {
+    const { data, error } = await supabase.from("expenses").insert(payload).select().single();
+
+    if (error) {
+      console.error("Error adding expense:", error);
+      alert("Database Error: " + error.message);
+      return null;
+    }
+
+    if (data) {
       setExpenses((prev) => [mapExpense(data), ...prev]);
     }
     return data;
