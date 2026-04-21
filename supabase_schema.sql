@@ -52,11 +52,25 @@ CREATE TABLE IF NOT EXISTS budgets (
   UNIQUE(user_id, category_id, month)
 );
 
--- 5. ENABLE ROW LEVEL SECURITY (each user sees only their data)
+-- 5. CREDITS TABLE (money owed TO you)
+CREATE TABLE IF NOT EXISTS credits (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  person_name TEXT NOT NULL,
+  total_amount DECIMAL(12,2) NOT NULL,
+  received_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  expected_date DATE,
+  status TEXT NOT NULL DEFAULT 'pending',  -- 'pending', 'partial', 'received'
+  notes TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 6. ENABLE ROW LEVEL SECURITY (each user sees only their data)
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE debts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budgets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE credits ENABLE ROW LEVEL SECURITY;
 
 -- 6. RLS POLICIES - Users can only CRUD their own data
 CREATE POLICY "Users can view own expenses" ON expenses FOR SELECT USING (auth.uid() = user_id);
@@ -79,9 +93,15 @@ CREATE POLICY "Users can insert own budgets" ON budgets FOR INSERT WITH CHECK (a
 CREATE POLICY "Users can update own budgets" ON budgets FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own budgets" ON budgets FOR DELETE USING (auth.uid() = user_id);
 
+CREATE POLICY "Users can view own credits" ON credits FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own credits" ON credits FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own credits" ON credits FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own credits" ON credits FOR DELETE USING (auth.uid() = user_id);
+
 -- 7. INDEXES for performance
 CREATE INDEX IF NOT EXISTS idx_expenses_user_date ON expenses(user_id, date DESC);
 CREATE INDEX IF NOT EXISTS idx_expenses_user_category ON expenses(user_id, category_id);
 CREATE INDEX IF NOT EXISTS idx_debts_user ON debts(user_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id);
 CREATE INDEX IF NOT EXISTS idx_budgets_user_month ON budgets(user_id, month);
+CREATE INDEX IF NOT EXISTS idx_credits_user ON credits(user_id);

@@ -9,7 +9,7 @@ import styles from "./Sidebar.module.css";
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: "📊" },
   { href: "/expenses", label: "Expenses", icon: "💸" },
-  { href: "/debts", label: "Debts", icon: "🏦" },
+  { href: "/debts", label: "Money Manager", icon: "💰" },
   { href: "/subscriptions", label: "Subscriptions", icon: "🔁" },
   { href: "/budgets", label: "Budgets", icon: "🎯" },
   { href: "/reports", label: "Reports", icon: "📄" },

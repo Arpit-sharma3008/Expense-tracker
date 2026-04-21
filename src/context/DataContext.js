@@ -27,46 +27,11 @@ export function DataProvider({ children }) {
   const { user } = useAuth();
   const [expenses, setExpenses] = useState([]);
   const [debts, setDebts] = useState([]);
+  const [credits, setCredits] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [budgets, setBudgets] = useState([]);
   const [categories] = useState(DEFAULT_CATEGORIES);
   const [dataLoading, setDataLoading] = useState(true);
-
-  /* ---- Fetch all data when user logs in ---- */
-  useEffect(() => {
-    if (!user) {
-      setExpenses([]);
-      setDebts([]);
-      setSubscriptions([]);
-      setBudgets([]);
-      setDataLoading(false);
-      return;
-    }
-
-    const fetchAll = async () => {
-      setDataLoading(true);
-      try {
-        const [expRes, debtRes, subRes, budgetRes] = await Promise.all([
-          supabase.from("expenses").select("*").eq("user_id", user.id).order("date", { ascending: false }),
-          supabase.from("debts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-          supabase.from("subscriptions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-          supabase.from("budgets").select("*").eq("user_id", user.id),
-        ]);
-
-        // Map DB snake_case to camelCase
-        setExpenses((expRes.data || []).map(mapExpense));
-        setDebts((debtRes.data || []).map(mapDebt));
-        setSubscriptions((subRes.data || []).map(mapSubscription));
-        setBudgets((budgetRes.data || []).map(mapBudget));
-      } catch (err) {
-        console.error("Error fetching data:", err);
-      } finally {
-        setDataLoading(false);
-      }
-    };
-
-    fetchAll();
-  }, [user]);
 
   /* ---- Mappers (DB snake_case → JS camelCase) ---- */
   const mapExpense = (row) => ({
@@ -106,6 +71,56 @@ export function DataProvider({ children }) {
     monthlyLimit: parseFloat(row.monthly_limit),
     month: row.month,
   });
+
+  const mapCredit = (row) => ({
+    id: row.id,
+    personName: row.person_name,
+    totalAmount: parseFloat(row.total_amount),
+    receivedAmount: parseFloat(row.received_amount),
+    expectedDate: row.expected_date,
+    status: row.status,
+    notes: row.notes,
+    createdAt: row.created_at,
+  });
+
+  /* ---- Fetch all data when user logs in ---- */
+  useEffect(() => {
+    if (!user) {
+      setExpenses([]);
+      setDebts([]);
+      setCredits([]);
+      setSubscriptions([]);
+      setBudgets([]);
+      setDataLoading(false);
+      return;
+    }
+
+    const fetchAll = async () => {
+      setDataLoading(true);
+      try {
+        const [expRes, debtRes, creditRes, subRes, budgetRes] = await Promise.all([
+          supabase.from("expenses").select("*").eq("user_id", user.id).order("date", { ascending: false }),
+          supabase.from("debts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+          supabase.from("credits").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+          supabase.from("subscriptions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+          supabase.from("budgets").select("*").eq("user_id", user.id),
+        ]);
+
+        // Map DB snake_case to camelCase
+        setExpenses((expRes.data || []).map(mapExpense));
+        setDebts((debtRes.data || []).map(mapDebt));
+        setCredits((creditRes.data || []).map(mapCredit));
+        setSubscriptions((subRes.data || []).map(mapSubscription));
+        setBudgets((budgetRes.data || []).map(mapBudget));
+      } catch (err) {
+        console.error("Error fetching data:", err);
+      } finally {
+        setDataLoading(false);
+      }
+    };
+
+    fetchAll();
+  }, [user]);
 
   /* ======== EXPENSES ======== */
   const addExpense = useCallback(async (expense) => {
@@ -181,6 +196,43 @@ export function DataProvider({ children }) {
   const deleteDebt = useCallback(async (id) => {
     await supabase.from("debts").delete().eq("id", id);
     setDebts((prev) => prev.filter((d) => d.id !== id));
+  }, []);
+
+  /* ======== CREDITS ======== */
+  const addCredit = useCallback(async (credit) => {
+    if (!user) return;
+    const { data, error } = await supabase.from("credits").insert({
+      user_id: user.id,
+      person_name: credit.personName,
+      total_amount: credit.totalAmount,
+      received_amount: credit.receivedAmount || 0,
+      expected_date: credit.expectedDate || null,
+      status: credit.status || "pending",
+      notes: credit.notes || "",
+    }).select().single();
+
+    if (!error && data) {
+      setCredits((prev) => [...prev, mapCredit(data)]);
+    }
+    return data;
+  }, [user]);
+
+  const updateCredit = useCallback(async (id, updates) => {
+    const dbUpdates = {};
+    if (updates.personName !== undefined) dbUpdates.person_name = updates.personName;
+    if (updates.totalAmount !== undefined) dbUpdates.total_amount = updates.totalAmount;
+    if (updates.receivedAmount !== undefined) dbUpdates.received_amount = updates.receivedAmount;
+    if (updates.expectedDate !== undefined) dbUpdates.expected_date = updates.expectedDate;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+
+    await supabase.from("credits").update(dbUpdates).eq("id", id);
+    setCredits((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+  }, []);
+
+  const deleteCredit = useCallback(async (id) => {
+    await supabase.from("credits").delete().eq("id", id);
+    setCredits((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
   /* ======== SUBSCRIPTIONS ======== */
@@ -275,6 +327,7 @@ export function DataProvider({ children }) {
   const value = {
     expenses,
     debts,
+    credits,
     subscriptions,
     budgets,
     categories,
@@ -286,6 +339,9 @@ export function DataProvider({ children }) {
     addDebt,
     updateDebt,
     deleteDebt,
+    addCredit,
+    updateCredit,
+    deleteCredit,
     addSubscription,
     updateSubscription,
     deleteSubscription,

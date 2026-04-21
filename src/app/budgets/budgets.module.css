@@ -562,6 +562,104 @@
   color: #fff;
 }
 
+/* ---- Input Section Header ---- */
+.inputSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.inputSectionIcon {
+  font-size: 1.1rem;
+}
+
+.inputSectionTitle {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* ---- Insight Banners ---- */
+.insightBanner,
+.insightBannerWarn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  margin-bottom: var(--space-4);
+}
+
+.insightBanner {
+  background: rgba(52, 211, 153, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  color: var(--text-secondary);
+}
+
+.insightBannerWarn {
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  color: var(--text-secondary);
+}
+
+.insightBanner span:first-child,
+.insightBannerWarn span:first-child {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+/* ---- Suggestion Name Row ---- */
+.suggestionNameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* ---- Category Type Badges ---- */
+.catTypeBadge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+}
+
+.catType_fixed {
+  background: rgba(240, 165, 0, 0.12);
+  color: #d4930a;
+}
+
+.catType_essential {
+  background: rgba(46, 204, 113, 0.12);
+  color: #1e9b56;
+}
+
+.catType_important {
+  background: rgba(79, 110, 247, 0.12);
+  color: #4f6ef7;
+}
+
+.catType_discretionary {
+  background: rgba(167, 139, 250, 0.12);
+  color: #8b6cf0;
+}
+
+/* ---- Trend Badge ---- */
+.trendBadge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: rgba(245, 158, 66, 0.1);
+  color: #d97706;
+  white-space: nowrap;
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 768px) {
   .page { padding: var(--space-4); }
@@ -580,4 +678,6 @@
   .suggestionItem { flex-direction: column; align-items: flex-start; }
   .suggestionRight { width: 100%; justify-content: space-between; padding-top: var(--space-2); border-top: 1px solid var(--border-light); }
   .suggestionReason { white-space: normal; }
+
+  .suggestionNameRow { flex-wrap: wrap; }
 }

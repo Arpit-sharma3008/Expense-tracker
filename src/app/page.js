@@ -11,7 +11,7 @@ import {
 import styles from "./page.module.css";
 
 export default function Dashboard() {
-  const { expenses, debts, subscriptions, categories, getCategoryById } = useData();
+  const { expenses, debts, credits, subscriptions, categories, getCategoryById } = useData();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const now = new Date();
@@ -31,6 +31,9 @@ export default function Dashboard() {
     const change = lastTotal > 0 ? ((thisTotal - lastTotal) / lastTotal) * 100 : 0;
 
     const totalDebt = debts.reduce((s, d) => s + d.remainingBalance, 0);
+    const pendingCredits = credits.reduce((s, c) => s + (c.totalAmount - c.receivedAmount), 0);
+    const netPosition = pendingCredits - totalDebt;
+
     const activeSubs = subscriptions.filter((s) => s.active);
     const monthlySubCost = activeSubs.reduce((s, sub) => s + sub.amount, 0);
 
@@ -39,8 +42,8 @@ export default function Dashboard() {
       .filter((e) => e.date === today)
       .reduce((s, e) => s + e.amount, 0);
 
-    return { thisTotal, lastTotal, change, totalDebt, monthlySubCost, todayTotal, txCount: thisMonth.length };
-  }, [expenses, debts, subscriptions, monthPrefix, lastMonthPrefix]);
+    return { thisTotal, lastTotal, change, totalDebt, pendingCredits, netPosition, monthlySubCost, todayTotal, txCount: thisMonth.length };
+  }, [expenses, debts, credits, subscriptions, monthPrefix, lastMonthPrefix]);
 
   /* ---- Category Breakdown (Pie) ---- */
   const categoryData = useMemo(() => {
@@ -132,9 +135,11 @@ export default function Dashboard() {
           <div className={styles.statCard}>
             <div className={styles.statIcon}>🏦</div>
             <div className={styles.statContent}>
-              <span className={styles.statLabel}>Total Debt</span>
-              <span className={styles.statValue}>{formatCurrency(stats.totalDebt)}</span>
-              <span className={styles.statMeta}>{debts.length} active debts</span>
+              <span className={styles.statLabel}>Net Position</span>
+              <span className={styles.statValue}>{formatCurrency(Math.abs(stats.netPosition))}</span>
+              <span className={styles.statMeta}>
+                {stats.netPosition >= 0 ? "Surplus" : "Deficit"} · {debts.length} debts, {credits.length} credits
+              </span>
             </div>
           </div>
 

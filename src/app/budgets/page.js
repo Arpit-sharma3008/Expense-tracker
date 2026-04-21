@@ -5,21 +5,55 @@ import Header from "@/components/Header/Header";
 import { useData } from "@/context/DataContext";
 import styles from "./budgets.module.css";
 
+/* ---- Category Classification ---- */
+const CATEGORY_TYPES = {
+  fixed: ["cat-9", "cat-4"],        // Rent, Bills & Utilities
+  essential: ["cat-1", "cat-8"],     // Food & Dining, Groceries
+  important: ["cat-2", "cat-6", "cat-7", "cat-10"], // Transport, Health, Education, Subscriptions
+  discretionary: ["cat-3", "cat-5", "cat-11", "cat-12"], // Shopping, Entertainment, Travel, Other
+};
+
+function getCategoryType(catId, catName) {
+  if (CATEGORY_TYPES.fixed.includes(catId)) return "fixed";
+  if (CATEGORY_TYPES.essential.includes(catId)) return "essential";
+  if (CATEGORY_TYPES.important.includes(catId)) return "important";
+  if (CATEGORY_TYPES.discretionary.includes(catId)) return "discretionary";
+  // Fallback: keyword matching
+  const name = catName.toLowerCase();
+  if (name.includes("rent") || name.includes("emi") || name.includes("bill") || name.includes("utilit")) return "fixed";
+  if (name.includes("food") || name.includes("grocer") || name.includes("dining")) return "essential";
+  if (name.includes("transport") || name.includes("health") || name.includes("education") || name.includes("subscri")) return "important";
+  return "discretionary";
+}
+
+/* ---- Default allocation percentages (of spendable budget) using 50/30/20 adapted ---- */
+const DEFAULT_ALLOCATION = {
+  fixed:         { share: 0.35, perCatFallback: [0.22, 0.13] },
+  essential:     { share: 0.25, perCatFallback: [0.12, 0.13] },
+  important:     { share: 0.22, perCatFallback: [0.07, 0.05, 0.05, 0.05] },
+  discretionary: { share: 0.18, perCatFallback: [0.06, 0.05, 0.04, 0.03] },
+};
+
 /* ---- Smart Budget Engine ---- */
-function generateSmartBudgets({ categories, expenses, monthlyIncome, savingsGoalPct, mode }) {
+function generateSmartBudgets({ categories, expenses, subscriptions, monthlyIncome, savingsGoalPct, mode }) {
   const now = new Date();
   const suggestions = [];
+  const MONTHS_TO_ANALYZE = 6;
 
-  // Gather spending data from past 3 months
+  // Gather spending data from past N months
   const monthlySpending = {};
   categories.forEach((cat) => {
     monthlySpending[cat.id] = [];
   });
 
-  for (let offset = 1; offset <= 3; offset++) {
+  let monthsWithData = 0;
+
+  for (let offset = 1; offset <= MONTHS_TO_ANALYZE; offset++) {
     const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
     const prefix = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const monthExpenses = expenses.filter((e) => e.date.startsWith(prefix));
+
+    if (monthExpenses.length > 0) monthsWithData++;
 
     categories.forEach((cat) => {
       const total = monthExpenses
@@ -29,58 +63,153 @@ function generateSmartBudgets({ categories, expenses, monthlyIncome, savingsGoal
     });
   }
 
+  // Also consider current month spending
+  const currentPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const currentMonthExpenses = expenses.filter((e) => e.date.startsWith(currentPrefix));
+
   const savingsAmount = monthlyIncome * (savingsGoalPct / 100);
   const spendableBudget = monthlyIncome - savingsAmount;
 
+  // Calculate total average spending across all categories
+  const totalAvgSpending = Object.values(monthlySpending).reduce(
+    (s, arr) => {
+      const nonZero = arr.filter((v) => v > 0);
+      return s + (nonZero.length > 0 ? nonZero.reduce((a, b) => a + b, 0) / nonZero.length : 0);
+    },
+    0
+  );
+
+  // Add active subscription costs (normalized to monthly)
+  const monthlySubCosts = (subscriptions || [])
+    .filter((s) => s.active)
+    .reduce((sum, s) => {
+      const amt = parseFloat(s.amount) || 0;
+      if (s.frequency === "yearly") return sum + amt / 12;
+      if (s.frequency === "quarterly") return sum + amt / 3;
+      return sum + amt;
+    }, 0);
+
+  // Group categories by type
+  const catsByType = { fixed: [], essential: [], important: [], discretionary: [] };
+  categories.forEach((cat) => {
+    const type = getCategoryType(cat.id, cat.name);
+    catsByType[type].push(cat.id);
+  });
+
+  const hasAnyHistory = totalAvgSpending > 0;
+
   categories.forEach((cat) => {
     const history = monthlySpending[cat.id];
-    const avg = history.reduce((s, v) => s + v, 0) / Math.max(history.length, 1);
+    const nonZeroHistory = history.filter((v) => v > 0);
+    const avg = nonZeroHistory.length > 0 ? nonZeroHistory.reduce((s, v) => s + v, 0) / nonZeroHistory.length : 0;
     const max = Math.max(...history, 0);
+    const min = nonZeroHistory.length > 0 ? Math.min(...nonZeroHistory) : 0;
     const hasHistory = avg > 0;
+    const catType = getCategoryType(cat.id, cat.name);
+
+    // Detect spending trend (is spending increasing or decreasing?)
+    const recentAvg = nonZeroHistory.slice(0, 2).reduce((s, v) => s + v, 0) / Math.max(nonZeroHistory.slice(0, 2).length, 1);
+    const olderAvg = nonZeroHistory.slice(2).reduce((s, v) => s + v, 0) / Math.max(nonZeroHistory.slice(2).length, 1);
+    const trend = hasHistory && olderAvg > 0 ? ((recentAvg - olderAvg) / olderAvg) * 100 : 0;
+    const trendLabel = trend > 15 ? "↗ trending up" : trend < -15 ? "↘ trending down" : "";
+
+    // Current month spend for this category
+    const currentSpend = currentMonthExpenses
+      .filter((e) => e.categoryId === cat.id)
+      .reduce((s, e) => s + e.amount, 0);
+
+    // Include subscription cost for Subscriptions category
+    const isSubCategory = cat.id === "cat-10" || cat.name.toLowerCase().includes("subscri");
+    const subCost = isSubCategory ? monthlySubCosts : 0;
 
     let suggested = 0;
     let reasoning = "";
 
-    if (mode === "auto" && hasHistory) {
-      // Auto mode: Use past data intelligently
-      if (cat.name.includes("Rent") || cat.name.includes("Bills")) {
-        // Fixed costs: use the max from history + small buffer
-        suggested = Math.ceil(max * 1.05 / 100) * 100;
-        reasoning = `Fixed cost — based on your highest month (₹${Math.round(max).toLocaleString("en-IN")}) + 5% buffer`;
-      } else if (cat.name.includes("Groceries") || cat.name.includes("Food")) {
-        // Essentials: use average + 10% buffer
-        suggested = Math.ceil(avg * 1.1 / 100) * 100;
-        reasoning = `Essential — 3-month avg (₹${Math.round(avg).toLocaleString("en-IN")}) + 10% flexibility`;
-      } else {
-        // Discretionary: try to trim by 10-15%
-        const trimFactor = 0.9;
-        suggested = Math.ceil(avg * trimFactor / 100) * 100;
-        reasoning = avg > 0
-          ? `Discretionary — trimmed 10% from avg (₹${Math.round(avg).toLocaleString("en-IN")}) to help you save`
-          : `No past spending detected — set to ₹0`;
-      }
-    } else if (mode === "income" && monthlyIncome > 0) {
-      // Income-based: allocate proportionally from spendable budget
-      const totalAvgSpending = Object.values(monthlySpending).reduce(
-        (s, arr) => s + arr.reduce((a, b) => a + b, 0) / Math.max(arr.length, 1),
-        0
-      );
+    if (mode === "auto") {
+      if (hasHistory) {
+        // Smart analysis based on category type
+        if (catType === "fixed") {
+          // Fixed costs: use max + 5% buffer (these rarely change)
+          suggested = Math.ceil(max * 1.05 / 100) * 100;
+          reasoning = `Fixed cost — highest month ₹${Math.round(max).toLocaleString("en-IN")} + 5% buffer`;
+        } else if (catType === "essential") {
+          // Essentials: use avg + 10% buffer for flexibility
+          const base = Math.max(avg, subCost);
+          suggested = Math.ceil(base * 1.1 / 100) * 100;
+          reasoning = `Essential — avg ₹${Math.round(avg).toLocaleString("en-IN")}/mo + 10% flexibility`;
+        } else if (catType === "important") {
+          // Important: use avg + 5% buffer
+          const base = Math.max(avg, subCost);
+          suggested = Math.ceil(base * 1.05 / 100) * 100;
+          reasoning = `Important expense — avg ₹${Math.round(avg).toLocaleString("en-IN")}/mo + 5% buffer`;
+        } else {
+          // Discretionary: try to trim 10-15% to encourage savings
+          const trimFactor = trend > 15 ? 0.85 : 0.90;
+          suggested = Math.ceil(avg * trimFactor / 100) * 100;
+          reasoning = `Discretionary — ${trend > 15 ? "trimmed 15% (spending rising)" : "trimmed 10%"} from avg ₹${Math.round(avg).toLocaleString("en-IN")}`;
+        }
 
-      if (totalAvgSpending > 0 && hasHistory) {
-        const proportion = avg / totalAvgSpending;
-        suggested = Math.ceil((proportion * spendableBudget) / 100) * 100;
-        reasoning = `${(proportion * 100).toFixed(0)}% of your spendable budget (₹${Math.round(spendableBudget).toLocaleString("en-IN")})`;
-      } else if (hasHistory) {
-        suggested = Math.ceil(avg / 100) * 100;
-        reasoning = `Based on 3-month average`;
+        // Ensure subscription category covers known subscriptions
+        if (isSubCategory && suggested < Math.ceil(subCost / 100) * 100) {
+          suggested = Math.ceil(subCost * 1.1 / 100) * 100;
+          reasoning = `Covers ₹${Math.round(subCost).toLocaleString("en-IN")}/mo in active subscriptions + buffer`;
+        }
+
+        // Add trend info
+        if (trendLabel) reasoning += ` (${trendLabel})`;
+
+      } else if (monthlyIncome > 0) {
+        // No history but we have income — use default allocation
+        const typeGroup = catsByType[catType];
+        const idxInGroup = typeGroup.indexOf(cat.id);
+        const fallbacks = DEFAULT_ALLOCATION[catType].perCatFallback;
+        const share = fallbacks[Math.min(idxInGroup, fallbacks.length - 1)] || 0.03;
+        suggested = Math.ceil((share * spendableBudget) / 100) * 100;
+        reasoning = `No history — allocated ${(share * 100).toFixed(0)}% of spendable budget (₹${Math.round(spendableBudget).toLocaleString("en-IN")})`;
+
+        if (isSubCategory && subCost > 0) {
+          suggested = Math.max(suggested, Math.ceil(subCost * 1.1 / 100) * 100);
+          reasoning = `Covers ₹${Math.round(subCost).toLocaleString("en-IN")}/mo subscriptions`;
+        }
       } else {
         suggested = 0;
-        reasoning = `No spending history — skipped`;
+        reasoning = `No spending history or income data — enter your income for smart allocation`;
+      }
+
+    } else if (mode === "income" && monthlyIncome > 0) {
+      // Income-based allocation
+      if (hasAnyHistory && hasHistory) {
+        // Use spending proportions from history, mapped onto spendable budget
+        const proportion = avg / totalAvgSpending;
+        suggested = Math.ceil((proportion * spendableBudget) / 100) * 100;
+        reasoning = `${(proportion * 100).toFixed(0)}% of spendable ₹${Math.round(spendableBudget).toLocaleString("en-IN")} (based on past spending ratio)`;
+
+        // Ensure subscription category covers subscriptions
+        if (isSubCategory && subCost > 0 && suggested < Math.ceil(subCost / 100) * 100) {
+          suggested = Math.ceil(subCost * 1.1 / 100) * 100;
+          reasoning = `Covers ₹${Math.round(subCost).toLocaleString("en-IN")}/mo subscriptions from income`;
+        }
+
+        if (trendLabel) reasoning += ` (${trendLabel})`;
+
+      } else {
+        // No history — use smart default allocation from income
+        const typeGroup = catsByType[catType];
+        const idxInGroup = typeGroup.indexOf(cat.id);
+        const fallbacks = DEFAULT_ALLOCATION[catType].perCatFallback;
+        const share = fallbacks[Math.min(idxInGroup, fallbacks.length - 1)] || 0.03;
+        suggested = Math.ceil((share * spendableBudget) / 100) * 100;
+        reasoning = `${catType === "fixed" ? "Fixed" : catType === "essential" ? "Essential" : catType === "important" ? "Important" : "Discretionary"} — ${(share * 100).toFixed(0)}% of spendable ₹${Math.round(spendableBudget).toLocaleString("en-IN")}`;
+
+        if (isSubCategory && subCost > 0) {
+          suggested = Math.max(suggested, Math.ceil(subCost * 1.1 / 100) * 100);
+          reasoning = `Covers ₹${Math.round(subCost).toLocaleString("en-IN")}/mo subscriptions + buffer`;
+        }
       }
     } else {
-      // Fallback
+      // Fallback with no income
       suggested = hasHistory ? Math.ceil(avg / 100) * 100 : 0;
-      reasoning = hasHistory ? `Based on 3-month average` : `No past data`;
+      reasoning = hasHistory ? `Based on ${nonZeroHistory.length}-month average` : `No past data — add income for smart allocation`;
     }
 
     suggestions.push({
@@ -91,8 +220,14 @@ function generateSmartBudgets({ categories, expenses, monthlyIncome, savingsGoal
       suggested,
       avgSpend: Math.round(avg),
       maxSpend: Math.round(max),
+      minSpend: Math.round(min),
+      currentSpend: Math.round(currentSpend),
       reasoning,
       hasHistory,
+      catType,
+      trend: Math.round(trend),
+      trendLabel,
+      monthsAnalyzed: nonZeroHistory.length,
     });
   });
 
@@ -100,7 +235,7 @@ function generateSmartBudgets({ categories, expenses, monthlyIncome, savingsGoal
 }
 
 export default function BudgetsPage() {
-  const { categories, budgets, setBudget, getExpensesByMonth, expenses } = useData();
+  const { categories, budgets, setBudget, getExpensesByMonth, expenses, subscriptions } = useData();
 
   const now = new Date();
   const year = now.getFullYear();
@@ -149,6 +284,7 @@ export default function BudgetsPage() {
       const suggestions = generateSmartBudgets({
         categories,
         expenses,
+        subscriptions,
         monthlyIncome,
         savingsGoalPct,
         mode: aiMode,
@@ -156,7 +292,7 @@ export default function BudgetsPage() {
       setAiSuggestions(suggestions);
       setIsGenerating(false);
     }, 800);
-  }, [categories, expenses, monthlyIncome, savingsGoalPct, aiMode]);
+  }, [categories, expenses, subscriptions, monthlyIncome, savingsGoalPct, aiMode]);
 
   const handleApplyAll = useCallback(() => {
     if (!aiSuggestions) return;
@@ -292,7 +428,7 @@ export default function BudgetsPage() {
                     <span>📊</span>
                     <div>
                       <strong>Auto (Past Data)</strong>
-                      <small>Analyze your last 3 months of spending</small>
+                      <small>Analyze your last 6 months of spending</small>
                     </div>
                   </button>
                   <button
@@ -308,39 +444,44 @@ export default function BudgetsPage() {
                 </div>
               </div>
 
-              {/* Income inputs (shown for income mode) */}
-              {aiMode === "income" && (
-                <div className={styles.inputSection}>
-                  <div className={styles.inputGroup}>
-                    <label>Monthly Income (₹)</label>
+              {/* Income inputs (shown for both modes — auto mode uses income as fallback when no history) */}
+              <div className={styles.inputSection}>
+                <div className={styles.inputSectionHeader}>
+                  <span className={styles.inputSectionIcon}>{aiMode === "income" ? "💰" : "📋"}</span>
+                  <span className={styles.inputSectionTitle}>
+                    {aiMode === "income" ? "Your Income Details" : "Income (optional — used when no spending history)"}
+                  </span>
+                </div>
+                <div className={styles.inputGroup}>
+                  <label>Monthly Salary / Income (₹)</label>
+                  <input
+                    type="number"
+                    value={monthlyIncome}
+                    onChange={(e) => setMonthlyIncome(Number(e.target.value))}
+                    min="0"
+                    step="1000"
+                    placeholder="e.g. 50000"
+                  />
+                </div>
+                <div className={styles.inputGroup}>
+                  <label>Savings Goal (%)</label>
+                  <div className={styles.sliderRow}>
                     <input
-                      type="number"
-                      value={monthlyIncome}
-                      onChange={(e) => setMonthlyIncome(Number(e.target.value))}
+                      type="range"
                       min="0"
-                      step="1000"
+                      max="60"
+                      value={savingsGoalPct}
+                      onChange={(e) => setSavingsGoalPct(Number(e.target.value))}
+                      className={styles.slider}
                     />
+                    <span className={styles.sliderValue}>{savingsGoalPct}%</span>
                   </div>
-                  <div className={styles.inputGroup}>
-                    <label>Savings Goal (%)</label>
-                    <div className={styles.sliderRow}>
-                      <input
-                        type="range"
-                        min="0"
-                        max="60"
-                        value={savingsGoalPct}
-                        onChange={(e) => setSavingsGoalPct(Number(e.target.value))}
-                        className={styles.slider}
-                      />
-                      <span className={styles.sliderValue}>{savingsGoalPct}%</span>
-                    </div>
-                    <div className={styles.incomeBreakdown}>
-                      <span>Savings: {formatCurrency(monthlyIncome * savingsGoalPct / 100)}</span>
-                      <span>Spendable: {formatCurrency(monthlyIncome * (1 - savingsGoalPct / 100))}</span>
-                    </div>
+                  <div className={styles.incomeBreakdown}>
+                    <span>💚 Savings: {formatCurrency(monthlyIncome * savingsGoalPct / 100)}</span>
+                    <span>💳 Spendable: {formatCurrency(monthlyIncome * (1 - savingsGoalPct / 100))}</span>
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* Generate Button */}
               <button className={styles.generateBtn} onClick={handleGenerate} disabled={isGenerating}>
@@ -359,16 +500,35 @@ export default function BudgetsPage() {
                       <span>Total Suggested</span>
                       <strong>{formatCurrency(totalSuggested)}</strong>
                     </div>
-                    {aiMode === "income" && (
+                    {monthlyIncome > 0 && (
                       <div className={styles.resultsStat}>
-                        <span>Savings Left</span>
-                        <strong>{formatCurrency(monthlyIncome - totalSuggested)}</strong>
+                        <span>Remaining from Income</span>
+                        <strong style={{ color: monthlyIncome - totalSuggested >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                          {formatCurrency(monthlyIncome - totalSuggested)}
+                        </strong>
                       </div>
                     )}
+                    <div className={styles.resultsStat}>
+                      <span>Categories</span>
+                      <strong>{aiSuggestions.filter((s) => s.suggested > 0).length} / {aiSuggestions.length}</strong>
+                    </div>
                     <button className={`btn btn-primary ${styles.applyAllBtn}`} onClick={handleApplyAll}>
                       ✅ Apply All
                     </button>
                   </div>
+
+                  {/* Data insight banner */}
+                  {aiSuggestions.some((s) => s.hasHistory) ? (
+                    <div className={styles.insightBanner}>
+                      <span>📊</span>
+                      <span>Based on {Math.max(...aiSuggestions.map(s => s.monthsAnalyzed))} months of spending data across {aiSuggestions.filter(s => s.hasHistory).length} categories</span>
+                    </div>
+                  ) : (
+                    <div className={styles.insightBannerWarn}>
+                      <span>💡</span>
+                      <span>No past spending data found — budgets are allocated using standard budgeting rules based on your income</span>
+                    </div>
+                  )}
 
                   <div className={styles.suggestionList}>
                     {aiSuggestions.filter((s) => s.suggested > 0 || s.hasHistory).map((s) => (
@@ -376,11 +536,19 @@ export default function BudgetsPage() {
                         <div className={styles.suggestionLeft}>
                           <span className={styles.suggestionIcon} style={{ background: s.color + "18" }}>{s.icon}</span>
                           <div className={styles.suggestionInfo}>
-                            <span className={styles.suggestionName}>{s.name}</span>
+                            <div className={styles.suggestionNameRow}>
+                              <span className={styles.suggestionName}>{s.name}</span>
+                              <span className={`${styles.catTypeBadge} ${styles[`catType_${s.catType}`]}`}>{s.catType}</span>
+                              {s.trendLabel && (
+                                <span className={styles.trendBadge} title={`Spending ${s.trend > 0 ? 'increased' : 'decreased'} by ${Math.abs(s.trend)}%`}>
+                                  {s.trendLabel}
+                                </span>
+                              )}
+                            </div>
                             <span className={styles.suggestionReason}>{s.reasoning}</span>
                             {s.hasHistory && (
                               <span className={styles.suggestionHistory}>
-                                Avg: {formatCurrency(s.avgSpend)} · Max: {formatCurrency(s.maxSpend)}
+                                Avg: {formatCurrency(s.avgSpend)} · Max: {formatCurrency(s.maxSpend)}{s.currentSpend > 0 ? ` · This month: ${formatCurrency(s.currentSpend)}` : ""}
                               </span>
                             )}
                           </div>
