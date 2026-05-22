@@ -31,7 +31,12 @@ function calculatePayoff(balance, rate, payment) {
 }
 
 export default function MoneyManagerPage() {
-  const { debts, addDebt, updateDebt, deleteDebt, credits, addCredit, updateCredit, deleteCredit } = useData();
+  const { 
+    debts, addDebt, updateDebt, deleteDebt, 
+    credits, addCredit, updateCredit, deleteCredit,
+    recordDebtPayment, recordCreditPayment 
+  } = useData();
+  
   const [activeTab, setActiveTab] = useState("debts"); // "debts" | "credits"
   
   // Debt State
@@ -42,15 +47,25 @@ export default function MoneyManagerPage() {
     name: "", type: "credit_card", principal: "", remainingBalance: "", interestRate: "", minimumPayment: "", dueDate: "",
   });
 
+  // Debt Payment Modal State
+  const [debtPaymentModalData, setDebtPaymentModalData] = useState(null); // null or { id, remainingBalance, name }
+  const [debtPaymentAmount, setDebtPaymentAmount] = useState("");
+  const [debtPaymentType, setDebtPaymentType] = useState("full"); // "full" | "custom"
+  const [debtPaymentDate, setDebtPaymentDate] = useState(new Date().toISOString().split("T")[0]);
+  const [debtPaying, setDebtPaying] = useState(false);
+
   // Credit State
   const [showCreditForm, setShowCreditForm] = useState(false);
   const [creditForm, setCreditForm] = useState({
     personName: "", totalAmount: "", expectedDate: "", notes: "",
   });
 
-  // Record Payment State
-  const [paymentModalData, setPaymentModalData] = useState(null); // { id, amount }
+  // Credit Payment Modal State
+  const [paymentModalData, setPaymentModalData] = useState(null); // null or { id, amount, personName }
   const [paymentAmount, setPaymentAmount] = useState("");
+  const [creditPaymentType, setCreditPaymentType] = useState("full"); // "full" | "custom"
+  const [creditPaymentDate, setCreditPaymentDate] = useState(new Date().toISOString().split("T")[0]);
+  const [creditRecording, setCreditRecording] = useState(false);
 
   const handleDebtSubmit = (e) => {
     e.preventDefault();
@@ -77,22 +92,54 @@ export default function MoneyManagerPage() {
     setShowCreditForm(false);
   };
 
-  const handleRecordPayment = (e) => {
+  const handleDebtPaymentSubmit = async (e) => {
+    e.preventDefault();
+    if (!debtPaymentModalData) return;
+    
+    const amount = debtPaymentType === "full" 
+      ? debtPaymentModalData.remainingBalance 
+      : parseFloat(debtPaymentAmount);
+      
+    if (!amount || amount <= 0 || amount > debtPaymentModalData.remainingBalance) {
+      alert("Invalid payment amount");
+      return;
+    }
+    
+    setDebtPaying(true);
+    const res = await recordDebtPayment(debtPaymentModalData.id, amount, debtPaymentDate);
+    setDebtPaying(false);
+    
+    if (res) {
+      setDebtPaymentModalData(null);
+      setDebtPaymentAmount("");
+      setDebtPaymentType("full");
+      setDebtPaymentDate(new Date().toISOString().split("T")[0]);
+    }
+  };
+
+  const handleCreditPaymentSubmit = async (e) => {
     e.preventDefault();
     if (!paymentModalData) return;
-    const credit = credits.find(c => c.id === paymentModalData.id);
-    if (!credit) return;
-
-    const newReceived = credit.receivedAmount + parseFloat(paymentAmount);
-    const newStatus = newReceived >= credit.totalAmount ? "received" : "partial";
-
-    updateCredit(credit.id, {
-      receivedAmount: newReceived,
-      status: newStatus
-    });
-
-    setPaymentModalData(null);
-    setPaymentAmount("");
+    
+    const amount = creditPaymentType === "full" 
+      ? paymentModalData.amount 
+      : parseFloat(paymentAmount);
+      
+    if (!amount || amount <= 0 || amount > paymentModalData.amount) {
+      alert("Invalid payment amount");
+      return;
+    }
+    
+    setCreditRecording(true);
+    const res = await recordCreditPayment(paymentModalData.id, amount, creditPaymentDate);
+    setCreditRecording(false);
+    
+    if (res) {
+      setPaymentModalData(null);
+      setPaymentAmount("");
+      setCreditPaymentType("full");
+      setCreditPaymentDate(new Date().toISOString().split("T")[0]);
+    }
   };
 
   /* ---- Smart Strategy (Debts) ---- */
@@ -230,35 +277,44 @@ export default function MoneyManagerPage() {
                 const progress = ((debt.principal - debt.remainingBalance) / debt.principal) * 100;
                 const payoff = calculatePayoff(debt.remainingBalance, debt.interestRate, debt.minimumPayment);
                 return (
-                  <div key={debt.id} className={`card ${styles.itemCard}`}>
-                    <div className={styles.cardTop}>
-                      <div>
-                        <h4 className={styles.itemName}>{debt.name}</h4>
-                        <span className={`badge badge-primary`}>{DEBT_TYPES.find((t) => t.value === debt.type)?.label}</span>
+                  <div key={debt.id} className={`card ${styles.itemCard}`} style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                    <div>
+                      <div className={styles.cardTop}>
+                        <div>
+                          <h4 className={styles.itemName}>{debt.name}</h4>
+                          <span className={`badge badge-primary`}>{DEBT_TYPES.find((t) => t.value === debt.type)?.label}</span>
+                        </div>
+                        <button className={styles.delBtn} onClick={() => deleteDebt(debt.id)}>×</button>
                       </div>
-                      <button className={styles.delBtn} onClick={() => deleteDebt(debt.id)}>×</button>
-                    </div>
-                    <div className={styles.itemAmount}>
-                      <span className={styles.amountMain}>{formatCurrency(debt.remainingBalance)}</span>
-                      <span className={styles.amountOf}>of {formatCurrency(debt.principal)}</span>
-                    </div>
-                    <div className={styles.progressBar}>
-                      <div className={styles.progressFill} style={{ width: `${progress}%` }} />
-                    </div>
-                    <div className={styles.itemStats}>
-                      <div className={styles.itemStat}>
-                        <span>Interest Rate</span>
-                        <strong>{debt.interestRate}%</strong>
+                      <div className={styles.itemAmount}>
+                        <span className={styles.amountMain}>{formatCurrency(debt.remainingBalance)}</span>
+                        <span className={styles.amountOf}>of {formatCurrency(debt.principal)}</span>
                       </div>
-                      <div className={styles.itemStat}>
-                        <span>Min. Payment</span>
-                        <strong>{formatCurrency(debt.minimumPayment)}</strong>
+                      <div className={styles.progressBar} style={{ marginBottom: "var(--space-3)" }}>
+                        <div className={styles.progressFill} style={{ width: `${progress}%` }} />
                       </div>
-                      <div className={styles.itemStat}>
-                        <span>Payoff Time</span>
-                        <strong>{payoff.months} months</strong>
+                      <div className={styles.itemStats}>
+                        <div className={styles.itemStat}>
+                          <span>Interest</span>
+                          <strong>{debt.interestRate}%</strong>
+                        </div>
+                        <div className={styles.itemStat}>
+                          <span>Min Pay</span>
+                          <strong>{formatCurrency(debt.minimumPayment)}</strong>
+                        </div>
+                        <div className={styles.itemStat}>
+                          <span>Payoff</span>
+                          <strong>{payoff.months} mo</strong>
+                        </div>
                       </div>
                     </div>
+                    <button 
+                      className={`${styles.actionBtn} ${styles.payDebtBtn}`}
+                      onClick={() => setDebtPaymentModalData({ id: debt.id, remainingBalance: debt.remainingBalance, name: debt.name })}
+                      disabled={debt.remainingBalance === 0}
+                    >
+                      {debt.remainingBalance === 0 ? "🎉 Paid Fully" : "💸 Pay Debt"}
+                    </button>
                   </div>
                 );
               })}
@@ -280,43 +336,47 @@ export default function MoneyManagerPage() {
               {credits.map((credit) => {
                 const progress = (credit.receivedAmount / credit.totalAmount) * 100;
                 return (
-                  <div key={credit.id} className={`card ${styles.itemCard}`}>
-                    <div className={styles.cardTop}>
-                      <div>
-                        <h4 className={styles.itemName}>{credit.personName}</h4>
-                        <span className={`${styles.statusBadge} ${styles[credit.status]}`}>
-                          {credit.status.toUpperCase()}
-                        </span>
+                  <div key={credit.id} className={`card ${styles.itemCard}`} style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                    <div>
+                      <div className={styles.cardTop}>
+                        <div>
+                          <h4 className={styles.itemName}>{credit.personName}</h4>
+                          <span className={`${styles.statusBadge} ${styles[credit.status]}`}>
+                            {credit.status.toUpperCase()}
+                          </span>
+                        </div>
+                        <button className={styles.delBtn} onClick={() => deleteCredit(credit.id)}>×</button>
                       </div>
-                      <button className={styles.delBtn} onClick={() => deleteCredit(credit.id)}>×</button>
-                    </div>
-                    <div className={styles.itemAmount}>
-                      <span className={styles.amountMain}>{formatCurrency(credit.totalAmount - credit.receivedAmount)}</span>
-                      <span className={styles.amountOf}>remaining of {formatCurrency(credit.totalAmount)}</span>
-                    </div>
-                    <div className={styles.progressBar}>
-                      <div className={`${styles.progressFill} ${styles.creditProgress}`} style={{ width: `${progress}%` }} />
-                    </div>
-                    <div className={styles.itemStats}>
-                      <div className={styles.itemStat}>
-                        <span>Received</span>
-                        <strong>{formatCurrency(credit.receivedAmount)}</strong>
+                      <div className={styles.itemAmount}>
+                        <span className={styles.amountMain}>{formatCurrency(credit.totalAmount - credit.receivedAmount)}</span>
+                        <span className={styles.amountOf}>remaining of {formatCurrency(credit.totalAmount)}</span>
                       </div>
-                      <div className={styles.itemStat}>
-                        <span>Expected Date</span>
-                        <strong>{credit.expectedDate ? new Date(credit.expectedDate).toLocaleDateString("en-IN") : "N/A"}</strong>
+                      <div className={styles.progressBar} style={{ marginBottom: "var(--space-3)" }}>
+                        <div className={`${styles.progressFill} ${styles.creditProgress}`} style={{ width: `${progress}%` }} />
                       </div>
-                      <div className={styles.itemStat}>
-                        <button 
-                          className={styles.recordBtn} 
-                          onClick={() => setPaymentModalData({ id: credit.id, amount: credit.totalAmount - credit.receivedAmount })}
-                          disabled={credit.status === "received"}
-                        >
-                          Record Pay
-                        </button>
+                      <div className={styles.itemStats}>
+                        <div className={styles.itemStat}>
+                          <span>Received</span>
+                          <strong>{formatCurrency(credit.receivedAmount)}</strong>
+                        </div>
+                        <div className={styles.itemStat}>
+                          <span>Owed Total</span>
+                          <strong>{formatCurrency(credit.totalAmount)}</strong>
+                        </div>
+                        <div className={styles.itemStat}>
+                          <span>Expected</span>
+                          <strong>{credit.expectedDate ? new Date(credit.expectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "N/A"}</strong>
+                        </div>
                       </div>
+                      {credit.notes && <div className={styles.itemNotes}>{credit.notes}</div>}
                     </div>
-                    {credit.notes && <div className={styles.itemNotes}>{credit.notes}</div>}
+                    <button 
+                      className={`${styles.actionBtn} ${styles.recordCreditBtn}`} 
+                      onClick={() => setPaymentModalData({ id: credit.id, amount: credit.totalAmount - credit.receivedAmount, personName: credit.personName })}
+                      disabled={credit.status === "received"}
+                    >
+                      {credit.status === "received" ? "🎉 Received Fully" : "💵 Record Pay"}
+                    </button>
                   </div>
                 );
               })}
@@ -416,7 +476,7 @@ export default function MoneyManagerPage() {
         </div>
       )}
 
-      {/* ---- Record Payment Modal ---- */}
+      {/* ---- Record Payment (Credit Received) Modal ---- */}
       {paymentModalData && (
         <div className={styles.modalOverlay} onClick={() => setPaymentModalData(null)}>
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -424,23 +484,136 @@ export default function MoneyManagerPage() {
               <h3>Record Received Payment</h3>
               <button className={styles.closeBtn} onClick={() => setPaymentModalData(null)}>×</button>
             </div>
-            <form onSubmit={handleRecordPayment} className={styles.form}>
+            <form onSubmit={handleCreditPaymentSubmit} className={styles.form}>
+              <div className={styles.field}>
+                <span>Payment Type</span>
+                <div className={styles.toggleGroup}>
+                  <button 
+                    type="button" 
+                    className={`${styles.toggleBtn} ${creditPaymentType === "full" ? styles.toggleActive : ""}`}
+                    onClick={() => {
+                      setCreditPaymentType("full");
+                      setPaymentAmount(paymentModalData.amount.toString());
+                    }}
+                  >
+                    Paid Fully (₹{paymentModalData.amount.toLocaleString("en-IN")})
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`${styles.toggleBtn} ${creditPaymentType === "custom" ? styles.toggleActive : ""}`}
+                    onClick={() => {
+                      setCreditPaymentType("custom");
+                      setPaymentAmount("");
+                    }}
+                  >
+                    Custom Amount
+                  </button>
+                </div>
+              </div>
+
+              {creditPaymentType === "custom" && (
+                <label className={styles.field}>
+                  <span>Amount Received (₹)</span>
+                  <input 
+                    type="number" 
+                    value={paymentAmount} 
+                    onChange={(e) => setPaymentAmount(e.target.value)} 
+                    placeholder={`e.g. ${paymentModalData.amount}`}
+                    min="1" 
+                    max={paymentModalData.amount}
+                    required 
+                    autoFocus 
+                  />
+                </label>
+              )}
+
               <label className={styles.field}>
-                <span>Amount Received (₹)</span>
+                <span>Payment Date</span>
                 <input 
-                  type="number" 
-                  value={paymentAmount} 
-                  onChange={(e) => setPaymentAmount(e.target.value)} 
-                  placeholder={`e.g. ${paymentModalData.amount}`}
-                  min="1" 
-                  max={paymentModalData.amount}
+                  type="date" 
+                  value={creditPaymentDate} 
+                  onChange={(e) => setCreditPaymentDate(e.target.value)} 
                   required 
-                  autoFocus 
                 />
               </label>
+
               <div className={styles.formActions}>
                 <button type="button" className="btn btn-secondary" onClick={() => setPaymentModalData(null)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Save Payment</button>
+                <button type="submit" className="btn btn-primary" disabled={creditRecording}>
+                  {creditRecording ? "Saving..." : "Save Payment"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Pay Debt Modal ---- */}
+      {debtPaymentModalData && (
+        <div className={styles.modalOverlay} onClick={() => setDebtPaymentModalData(null)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3>Pay Debt: {debtPaymentModalData.name}</h3>
+              <button className={styles.closeBtn} onClick={() => setDebtPaymentModalData(null)}>×</button>
+            </div>
+            <form onSubmit={handleDebtPaymentSubmit} className={styles.form}>
+              <div className={styles.field}>
+                <span>Payment Type</span>
+                <div className={styles.toggleGroup}>
+                  <button 
+                    type="button" 
+                    className={`${styles.toggleBtn} ${debtPaymentType === "full" ? styles.toggleActive : ""}`}
+                    onClick={() => {
+                      setDebtPaymentType("full");
+                      setDebtPaymentAmount(debtPaymentModalData.remainingBalance.toString());
+                    }}
+                  >
+                    Paid Fully (₹{debtPaymentModalData.remainingBalance.toLocaleString("en-IN")})
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`${styles.toggleBtn} ${debtPaymentType === "custom" ? styles.toggleActive : ""}`}
+                    onClick={() => {
+                      setDebtPaymentType("custom");
+                      setDebtPaymentAmount("");
+                    }}
+                  >
+                    Custom Amount
+                  </button>
+                </div>
+              </div>
+
+              {debtPaymentType === "custom" && (
+                <label className={styles.field}>
+                  <span>Amount Paid (₹)</span>
+                  <input 
+                    type="number" 
+                    value={debtPaymentAmount} 
+                    onChange={(e) => setDebtPaymentAmount(e.target.value)} 
+                    placeholder={`e.g. 1000`}
+                    min="1" 
+                    max={debtPaymentModalData.remainingBalance}
+                    required 
+                    autoFocus 
+                  />
+                </label>
+              )}
+
+              <label className={styles.field}>
+                <span>Payment Date</span>
+                <input 
+                  type="date" 
+                  value={debtPaymentDate} 
+                  onChange={(e) => setDebtPaymentDate(e.target.value)} 
+                  required 
+                />
+              </label>
+
+              <div className={styles.formActions}>
+                <button type="button" className="btn btn-secondary" onClick={() => setDebtPaymentModalData(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={debtPaying}>
+                  {debtPaying ? "Paying..." : "Save Payment"}
+                </button>
               </div>
             </form>
           </div>

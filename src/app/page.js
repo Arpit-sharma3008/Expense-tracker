@@ -42,11 +42,16 @@ export default function Dashboard() {
     const activeSubs = subscriptions.filter((s) => s.active);
     const monthlySubCost = activeSubs.reduce((s, sub) => s + sub.amount, 0);
 
+    const totalAllTimeIncome = incomes.reduce((s, i) => s + i.amount, 0);
+    const totalAllTimeExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+    const inHandAmount = totalAllTimeIncome - totalAllTimeExpenses;
+
     return { 
       thisTotal, lastTotal, change, 
       totalDebt, pendingCredits, netPosition, 
       monthlySubCost, txCount: thisMonth.length,
-      thisMonthTotalIncome, cashFlow, savingsRate
+      thisMonthTotalIncome, cashFlow, savingsRate,
+      inHandAmount
     };
   }, [expenses, debts, credits, subscriptions, incomes, monthPrefix, lastMonthPrefix]);
 
@@ -145,7 +150,16 @@ export default function Dashboard() {
           <div className={`${styles.statCard} ${styles.statPrimary}`}>
             <div className={styles.statIcon}>💰</div>
             <div className={styles.statContent}>
-              <span className={styles.statLabel}>This Month</span>
+              <span className={styles.statLabel}>In Hand Balance</span>
+              <span className={styles.statValue}>{formatCurrency(stats.inHandAmount)}</span>
+              <span className={styles.statMeta} style={{ color: "rgba(255, 255, 255, 0.85)" }}>Actual Cash Available</span>
+            </div>
+          </div>
+
+          <div className={styles.statCard}>
+            <div className={styles.statIcon}>💸</div>
+            <div className={styles.statContent}>
+              <span className={styles.statLabel}>This Month Spend</span>
               <span className={styles.statValue}>{formatCurrency(stats.thisTotal)}</span>
               <span className={`${styles.statChange} ${stats.change <= 0 ? styles.positive : styles.negative}`}>
                 {stats.change <= 0 ? "↓" : "↑"} {Math.abs(stats.change).toFixed(1)}% vs last month

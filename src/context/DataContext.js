@@ -315,6 +315,117 @@ export function DataProvider({ children }) {
     setCredits((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
+  /* ======== DEBT & CREDIT PAYMENT TRANSACTIONS ======== */
+  const recordDebtPayment = useCallback(async (id, amount, date) => {
+    if (!user) return null;
+    
+    const debt = debts.find((d) => d.id === id);
+    if (!debt) {
+      console.error("Debt not found:", id);
+      return null;
+    }
+    
+    const newRemainingBalance = Math.max(0, debt.remainingBalance - amount);
+    
+    const { data: debtData, error: debtError } = await supabase
+      .from("debts")
+      .update({ remaining_balance: newRemainingBalance })
+      .eq("id", id)
+      .select()
+      .single();
+      
+    if (debtError) {
+      console.error("Error updating debt remaining balance:", debtError);
+      alert("Error updating debt: " + debtError.message);
+      return null;
+    }
+    
+    const payload = {
+      user_id: user.id,
+      description: `Debt Payment: ${debt.name}`,
+      amount: amount,
+      category_id: "cat-12",
+      date: date,
+    };
+    
+    const { data: expenseData, error: expenseError } = await supabase
+      .from("expenses")
+      .insert(payload)
+      .select()
+      .single();
+      
+    if (expenseError) {
+      console.error("Error logging expense transaction:", expenseError);
+      alert("Error logging expense: " + expenseError.message);
+      return null;
+    }
+    
+    if (debtData) {
+      setDebts((prev) => prev.map((d) => (d.id === id ? mapDebt(debtData) : d)));
+    }
+    if (expenseData) {
+      setExpenses((prev) => [mapExpense(expenseData), ...prev]);
+    }
+    
+    return { debtData, expenseData };
+  }, [user, debts]);
+
+  const recordCreditPayment = useCallback(async (id, amount, date) => {
+    if (!user) return null;
+    
+    const credit = credits.find((c) => c.id === id);
+    if (!credit) {
+      console.error("Credit not found:", id);
+      return null;
+    }
+    
+    const newReceivedAmount = credit.receivedAmount + amount;
+    const newStatus = newReceivedAmount >= credit.totalAmount ? "received" : "partial";
+    
+    const { data: creditData, error: creditError } = await supabase
+      .from("credits")
+      .update({
+        received_amount: newReceivedAmount,
+        status: newStatus,
+      })
+      .eq("id", id)
+      .select()
+      .single();
+      
+    if (creditError) {
+      console.error("Error updating credit:", creditError);
+      alert("Error updating credit: " + creditError.message);
+      return null;
+    }
+    
+    const { data: incomeData, error: incomeError } = await supabase
+      .from("incomes")
+      .insert({
+        user_id: user.id,
+        source: `Credit Received: ${credit.personName}`,
+        amount: amount,
+        date: date,
+        notes: `Received from ${credit.personName}`,
+      })
+      .select()
+      .single();
+      
+    if (incomeError) {
+      console.error("Error logging income transaction:", incomeError);
+      alert("Error logging income: " + incomeError.message);
+      return null;
+    }
+    
+    if (creditData) {
+      setCredits((prev) => prev.map((c) => (c.id === id ? mapCredit(creditData) : c)));
+    }
+    if (incomeData) {
+      setIncomes((prev) => [mapIncome(incomeData), ...prev]);
+    }
+    
+    return { creditData, incomeData };
+  }, [user, credits]);
+
   /* ======== SUBSCRIPTIONS ======== */
   const addSubscription = useCallback(async (sub) => {
     if (!user) return;
@@ -528,6 +639,8 @@ export function DataProvider({ children }) {
     addCredit,
     updateCredit,
     deleteCredit,
+    recordDebtPayment,
+    recordCreditPayment,
     addSubscription,
     updateSubscription,
     deleteSubscription,
