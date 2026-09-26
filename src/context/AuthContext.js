@@ -240,9 +240,19 @@ export function AuthProvider({ children }) {
     return btoa(JSON.stringify(payload));
   };
 
-  const importConfigCode = (codeStr) => {
+  const importConfigCode = (rawStr) => {
+    if (!rawStr) return { success: false, error: "Please enter or paste a valid sync code or link." };
+    let cleanStr = rawStr.trim();
+    if (cleanStr.includes("sync=")) {
+      cleanStr = cleanStr.split("sync=")[1].split("&")[0];
+    }
     try {
-      const decoded = JSON.parse(atob(codeStr.trim()));
+      let decoded;
+      if (cleanStr.startsWith("{")) {
+        decoded = JSON.parse(cleanStr);
+      } else {
+        decoded = JSON.parse(atob(cleanStr));
+      }
       if (decoded.managerPin) {
         setManagerPin(decoded.managerPin);
         if (typeof window !== "undefined") localStorage.setItem("stall_manager_pin", decoded.managerPin);
@@ -254,7 +264,7 @@ export function AuthProvider({ children }) {
       syncToCloud(decoded.managerPin, decoded.staffList);
       return { success: true };
     } catch (e) {
-      return { success: false, error: "Invalid Sync Code format." };
+      return { success: false, error: "Invalid Sync Code or Link format." };
     }
   };
 

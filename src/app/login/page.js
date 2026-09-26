@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
-  const { loginAsManager, loginAsEmployee, managerPin, staffList } = useAuth();
+  const { loginAsManager, loginAsEmployee, managerPin, staffList, syncFromCloud, importConfigCode } = useAuth();
   const router = useRouter();
   const [loginRole, setLoginRole] = useState("manager"); // "manager" | "employee"
 
@@ -188,6 +188,63 @@ export default function LoginPage() {
             </div>
           </form>
         )}
+
+        {/* MANUAL SYNC TOOLBAR FOR PC <-> PHONE */}
+        <div style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px dashed var(--border-color)", textAlign: "center" }}>
+          <div style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--text-tertiary)", marginBottom: "8px" }}>
+            📱 Changed PINs or Accounts on PC?
+          </div>
+          <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+            <button
+              type="button"
+              onClick={async () => {
+                setSubmitting(true);
+                await syncFromCloud();
+                setSubmitting(false);
+                alert("✅ Cloud Sync Complete! Latest PINs and Employee Accounts loaded on this phone.");
+              }}
+              style={{
+                flex: 1,
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border-color)",
+                color: "var(--text-primary)",
+                padding: "8px 10px",
+                borderRadius: "8px",
+                fontSize: "0.75rem",
+                fontWeight: "bold",
+                cursor: "pointer",
+              }}
+            >
+              ☁️ Sync from Cloud
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const code = prompt("Paste the Sync Code or 1-Click Link copied from your PC:");
+                if (!code) return;
+                const res = importConfigCode(code);
+                if (res.success) {
+                  alert("✅ Credentials & Employee PINs synced successfully on this phone!");
+                } else {
+                  alert(res.error);
+                }
+              }}
+              style={{
+                flex: 1,
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border-color)",
+                color: "var(--text-primary)",
+                padding: "8px 10px",
+                borderRadius: "8px",
+                fontSize: "0.75rem",
+                fontWeight: "bold",
+                cursor: "pointer",
+              }}
+            >
+              📥 Paste Code / Link
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
