@@ -59,8 +59,8 @@ export default function MenuPage() {
         }}
       />
 
-      <div style={{ padding: "24px", maxWidth: "1100px", margin: "0 auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: "24px" }}>
+      <div className="responsive-container" style={{ padding: "24px", maxWidth: "1100px", margin: "0 auto" }}>
+        <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: "24px" }}>
           {/* ADD SKU FORM */}
           <div className="card" style={{ padding: "24px", borderRadius: "16px" }}>
             <h3 style={{ marginTop: 0, marginBottom: "16px", fontSize: "1.15rem" }}>Add New Menu SKU Item</h3>
@@ -104,7 +104,7 @@ export default function MenuPage() {
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+              <div className="responsive-grid-equal" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: "10px" }}>
                 <div>
                   <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Selling Price (₹)</label>
                   <input
@@ -164,6 +164,8 @@ export default function MenuPage() {
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "12px",
                         padding: "14px",
                         background: "var(--bg-elevated)",
                         border: "1px solid var(--border-color)",

@@ -68,8 +68,8 @@ export default function CashClosurePage() {
         }}
       />
 
-      <div style={{ padding: "24px", maxWidth: "1100px", margin: "0 auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "24px" }}>
+      <div className="responsive-container">
+        <div className="responsive-grid-equal">
           {/* RECONCILIATION FORM */}
           <div className="card" style={{ padding: "24px", borderRadius: "16px" }}>
             <h3 style={{ marginTop: 0, marginBottom: "16px", fontSize: "1.15rem" }}>Perform Day End Reconciliation</h3>

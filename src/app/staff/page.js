@@ -69,7 +69,7 @@ export default function StaffPage() {
         }}
       />
 
-      <div style={{ padding: "24px", maxWidth: "1100px", margin: "0 auto" }}>
+      <div className="responsive-container" style={{ padding: "24px", maxWidth: "1100px", margin: "0 auto" }}>
         {/* INFO BANNER */}
         <div className="card" style={{ padding: "20px 24px", borderRadius: "16px", marginBottom: "24px", background: "linear-gradient(135deg, rgba(16,185,129,0.1), rgba(59,130,246,0.1))", border: "1px solid rgba(16,185,129,0.3)" }}>
           <h3 style={{ margin: 0, fontSize: "1.1rem" }}>💡 Free Local Staff Management</h3>
@@ -78,7 +78,7 @@ export default function StaffPage() {
           </p>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "24px" }}>
+        <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "24px" }}>
           {/* LEFT: ADD STAFF & CHANGE MASTER PIN */}
           <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
             {/* ADD STAFF FORM */}
@@ -170,6 +170,8 @@ export default function StaffPage() {
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: "12px",
                       padding: "14px",
                       background: "var(--bg-elevated)",
                       border: "1px solid var(--border-color)",

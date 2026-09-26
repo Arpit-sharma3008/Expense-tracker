@@ -61,9 +61,9 @@ export default function VendorsPage() {
         }}
       />
 
-      <div style={{ padding: "24px", maxWidth: "1100px", margin: "0 auto" }}>
+      <div className="responsive-container" style={{ padding: "24px", maxWidth: "1100px", margin: "0 auto" }}>
         {/* Total Dues Banner */}
-        <div className="card" style={{ padding: "20px 24px", borderRadius: "16px", marginBottom: "24px", background: "linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1))", border: "1px solid rgba(59,130,246,0.3)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="card" style={{ padding: "20px 24px", borderRadius: "16px", marginBottom: "24px", background: "linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1))", border: "1px solid rgba(59,130,246,0.3)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
           <div>
             <h3 style={{ margin: 0, fontSize: "1.1rem" }}>Total Pending Vendor Dues</h3>
             <span style={{ fontSize: "0.85rem", color: "var(--text-tertiary)" }}>Accounts Payable to suppliers</span>
@@ -73,7 +73,7 @@ export default function VendorsPage() {
           </span>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "24px" }}>
+        <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "24px" }}>
           {/* ADD VENDOR FORM */}
           <div className="card" style={{ padding: "24px", borderRadius: "16px" }}>
             <h3 style={{ marginTop: 0, marginBottom: "16px", fontSize: "1.15rem" }}>Add Supplier Contact</h3>
@@ -159,6 +159,8 @@ export default function VendorsPage() {
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: "12px",
                       padding: "14px",
                       background: "var(--bg-elevated)",
                       border: "1px solid var(--border-color)",

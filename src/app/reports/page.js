@@ -113,10 +113,10 @@ export default function ReportsPage() {
         }}
       />
 
-      <div style={{ padding: "24px", maxWidth: "1100px", margin: "0 auto" }}>
+      <div className="responsive-container" style={{ padding: "24px", maxWidth: "1100px", margin: "0 auto" }}>
         {/* ACTION BAR */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "12px" }}>
-          <div style={{ display: "flex", gap: "8px" }}>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             {["all", "today", "week", "month"].map((f) => (
               <button
                 key={f}
@@ -136,7 +136,7 @@ export default function ReportsPage() {
             ))}
           </div>
 
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
             <button
               onClick={exportToCSV}
               style={{

@@ -78,8 +78,8 @@ export default function ExpensesPage() {
         }}
       />
 
-      <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "24px" }}>
+      <div className="responsive-container">
+        <div className="responsive-grid">
           {/* LEFT: EXPENSE ENTRY FORM */}
           <div className="card" style={{ padding: "24px", borderRadius: "16px" }}>
             <h3 style={{ marginTop: 0, marginBottom: "16px", fontSize: "1.15rem" }}>Log New Expense</h3>
