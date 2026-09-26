@@ -17,6 +17,7 @@ export default function StaffPage() {
     syncFromCloud,
     exportConfigCode,
     importConfigCode,
+    getSyncLink,
   } = useAuth();
   const router = useRouter();
 
@@ -168,25 +169,36 @@ export default function StaffPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 <button
                   type="button"
-                  onClick={async () => {
-                    await syncFromCloud();
-                    alert("✅ Cloud Sync Complete! Fetched latest staff accounts and PINs.");
+                  onClick={() => {
+                    const link = getSyncLink();
+                    navigator.clipboard.writeText(link);
+                    alert("🔗 1-Click Sync Link copied! Send this link to your phone via WhatsApp/SMS to sync accounts in 1 tap.");
                   }}
-                  style={{ background: "var(--color-primary)", color: "#fff", border: "none", padding: "10px", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}
+                  style={{ background: "linear-gradient(135deg, #10b981, #3b82f6)", color: "#fff", border: "none", padding: "12px", borderRadius: "10px", fontWeight: "bold", cursor: "pointer" }}
                 >
-                  ☁️ Pull Latest from Cloud
+                  🔗 Copy 1-Click Sync Link (Send to Phone)
                 </button>
                 <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await syncFromCloud();
+                      alert("✅ Cloud Sync Complete! Fetched latest staff accounts and PINs.");
+                    }}
+                    style={{ flex: 1, background: "var(--bg-elevated)", border: "1px solid var(--border-color)", color: "var(--text-primary)", padding: "10px", borderRadius: "8px", fontWeight: "bold", cursor: "pointer", fontSize: "0.8rem" }}
+                  >
+                    ☁️ Pull Cloud
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
                       const code = exportConfigCode();
                       navigator.clipboard.writeText(code);
-                      alert("📋 Sync Code copied to clipboard! Paste this code on your phone to transfer accounts instantly.");
+                      alert("📋 Sync Code copied to clipboard!");
                     }}
                     style={{ flex: 1, background: "var(--bg-elevated)", border: "1px solid var(--border-color)", color: "var(--text-primary)", padding: "10px", borderRadius: "8px", fontWeight: "bold", cursor: "pointer", fontSize: "0.8rem" }}
                   >
-                    📋 Copy Sync Code
+                    📋 Copy Code
                   </button>
                   <button
                     type="button"
@@ -202,7 +214,7 @@ export default function StaffPage() {
                     }}
                     style={{ flex: 1, background: "var(--bg-elevated)", border: "1px solid var(--border-color)", color: "var(--text-primary)", padding: "10px", borderRadius: "8px", fontWeight: "bold", cursor: "pointer", fontSize: "0.8rem" }}
                   >
-                    📥 Import Sync Code
+                    📥 Import Code
                   </button>
                 </div>
               </div>

@@ -59,13 +59,35 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      // Load saved PINs & Staff from LocalStorage first for instant UX
-      const savedPin = localStorage.getItem("stall_manager_pin");
-      if (savedPin) setManagerPin(savedPin);
+      // 1. Check for ?sync= URL parameter for instant 1-click sync link
+      const params = new URLSearchParams(window.location.search);
+      const syncCode = params.get("sync");
+      if (syncCode) {
+        try {
+          const decoded = JSON.parse(atob(syncCode.trim()));
+          if (decoded.managerPin) {
+            setManagerPin(decoded.managerPin);
+            localStorage.setItem("stall_manager_pin", decoded.managerPin);
+          }
+          if (decoded.staffList && Array.isArray(decoded.staffList)) {
+            setStaffList(decoded.staffList);
+            localStorage.setItem("stall_staff_list", JSON.stringify(decoded.staffList));
+          }
+          alert("✅ Staff accounts & Manager PIN synced successfully on this device!");
+          const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+          window.history.replaceState({ path: cleanUrl }, "", cleanUrl);
+        } catch (e) {
+          console.error("URL sync parse error:", e);
+        }
+      } else {
+        // Load saved PINs & Staff from LocalStorage for instant UX
+        const savedPin = localStorage.getItem("stall_manager_pin");
+        if (savedPin) setManagerPin(savedPin);
 
-      const savedStaff = localStorage.getItem("stall_staff_list");
-      if (savedStaff) {
-        try { setStaffList(JSON.parse(savedStaff)); } catch (e) {}
+        const savedStaff = localStorage.getItem("stall_staff_list");
+        if (savedStaff) {
+          try { setStaffList(JSON.parse(savedStaff)); } catch (e) {}
+        }
       }
 
       const savedRole = localStorage.getItem("stall_active_role");
@@ -236,6 +258,14 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const getSyncLink = () => {
+    const code = exportConfigCode();
+    if (typeof window !== "undefined") {
+      return `${window.location.origin}/?sync=${code}`;
+    }
+    return `https://expense-tracker-tau-taupe-74.vercel.app/?sync=${code}`;
+  };
+
   const signOut = () => {
     try { supabase.auth.signOut(); } catch (e) {}
     setRole(null);
@@ -265,6 +295,7 @@ export function AuthProvider({ children }) {
         syncFromCloud,
         exportConfigCode,
         importConfigCode,
+        getSyncLink,
       }}
     >
       {children}
