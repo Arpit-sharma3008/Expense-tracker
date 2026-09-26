@@ -11,11 +11,14 @@ export default function LoginPage() {
 
   const [inputPin, setInputPin] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleManagerLogin = (e) => {
+  const handleManagerLogin = async (e) => {
     e.preventDefault();
     setError("");
-    const res = loginAsManager(inputPin);
+    setSubmitting(true);
+    const res = await loginAsManager(inputPin);
+    setSubmitting(false);
     if (res.success) {
       router.push("/");
     } else {
@@ -23,10 +26,12 @@ export default function LoginPage() {
     }
   };
 
-  const handleEmployeeLogin = (e) => {
+  const handleEmployeeLogin = async (e) => {
     e.preventDefault();
     setError("");
-    const res = loginAsEmployee(inputPin);
+    setSubmitting(true);
+    const res = await loginAsEmployee(inputPin);
+    setSubmitting(false);
     if (res.success) {
       router.push("/sales");
       if (typeof window !== "undefined") {
@@ -129,10 +134,11 @@ export default function LoginPage() {
 
             <button
               type="submit"
+              disabled={submitting}
               className="btn btn-primary"
-              style={{ padding: "14px", borderRadius: "10px", fontWeight: "bold", fontSize: "1rem", cursor: "pointer" }}
+              style={{ padding: "14px", borderRadius: "10px", fontWeight: "bold", fontSize: "1rem", cursor: submitting ? "not-allowed" : "pointer" }}
             >
-              Unlock Manager Dashboard
+              {submitting ? "Verifying Credentials..." : "Unlock Manager Dashboard"}
             </button>
           </form>
         )}
@@ -167,10 +173,11 @@ export default function LoginPage() {
 
             <button
               type="submit"
+              disabled={submitting}
               className="btn btn-primary"
-              style={{ padding: "14px", borderRadius: "10px", fontWeight: "bold", fontSize: "1rem", cursor: "pointer" }}
+              style={{ padding: "14px", borderRadius: "10px", fontWeight: "bold", fontSize: "1rem", cursor: submitting ? "not-allowed" : "pointer" }}
             >
-              Enter Cashier POS Terminal
+              {submitting ? "Verifying Credentials..." : "Enter Cashier POS Terminal"}
             </button>
 
             {/* Hint Box */}

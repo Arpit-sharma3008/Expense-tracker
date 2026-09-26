@@ -111,17 +111,74 @@ export function AuthProvider({ children }) {
   }, [role, activeStaff]);
 
   /* ======== AUTH & ROLE METHODS ======== */
-  const loginAsManager = (pin) => {
+  const loginAsManager = async (pin) => {
+    // 1. Check local state first
     if (pin === managerPin) {
       setRole("manager");
       setActiveStaff(null);
       return { success: true };
     }
-    return { success: false, error: `Incorrect Manager PIN! If changed on PC, sync cloud or use Manager PIN.` };
+
+    // 2. Fetch latest cloud config automatically from Supabase
+    try {
+      const { data } = await supabase
+        .from("stall_config")
+        .select("*")
+        .eq("id", "default_stall")
+        .maybeSingle();
+
+      if (data) {
+        if (data.manager_pin) {
+          setManagerPin(data.manager_pin);
+          if (typeof window !== "undefined") localStorage.setItem("stall_manager_pin", data.manager_pin);
+        }
+        if (data.staff_list && Array.isArray(data.staff_list)) {
+          setStaffList(data.staff_list);
+          if (typeof window !== "undefined") localStorage.setItem("stall_staff_list", JSON.stringify(data.staff_list));
+        }
+
+        if (pin === data.manager_pin) {
+          setRole("manager");
+          setActiveStaff(null);
+          return { success: true };
+        }
+      }
+    } catch (e) {
+      console.warn("Cloud manager login error:", e);
+    }
+
+    return { success: false, error: "Incorrect Manager PIN!" };
   };
 
-  const loginAsEmployee = (codeOrPin) => {
-    const staff = staffList.find(s => s.pin === codeOrPin || s.code.toLowerCase() === codeOrPin.toLowerCase());
+  const loginAsEmployee = async (codeOrPin) => {
+    // 1. Check local state first
+    let staff = staffList.find(s => s.pin === codeOrPin || s.code.toLowerCase() === codeOrPin.toLowerCase());
+
+    // 2. If not found in local memory, fetch latest staff accounts from Supabase cloud!
+    if (!staff) {
+      try {
+        const { data } = await supabase
+          .from("stall_config")
+          .select("*")
+          .eq("id", "default_stall")
+          .maybeSingle();
+
+        if (data) {
+          if (data.staff_list && Array.isArray(data.staff_list)) {
+            setStaffList(data.staff_list);
+            if (typeof window !== "undefined") localStorage.setItem("stall_staff_list", JSON.stringify(data.staff_list));
+            staff = data.staff_list.find(s => s.pin === codeOrPin || s.code.toLowerCase() === codeOrPin.toLowerCase());
+          }
+          if (data.manager_pin) {
+            setManagerPin(data.manager_pin);
+            if (typeof window !== "undefined") localStorage.setItem("stall_manager_pin", data.manager_pin);
+          }
+        }
+      } catch (e) {
+        console.warn("Cloud employee login error:", e);
+      }
+    }
+
     if (staff) {
       setRole("employee");
       setActiveStaff(staff);
