@@ -3,224 +3,264 @@
 import { useState, useMemo } from "react";
 import Header from "@/components/Header/Header";
 import { useData } from "@/context/DataContext";
-import styles from "./reports.module.css";
 
 export default function ReportsPage() {
-  const { expenses, categories, debts, subscriptions, getCategoryById } = useData();
-  const now = new Date();
-  const [selectedMonth, setSelectedMonth] = useState(
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
-  );
+  const { sales, expenses, wastage, closures, resetStallData } = useData();
+  const [dateFilter, setDateFilter] = useState("all");
 
-
-  const monthExpenses = useMemo(() => {
-    return expenses.filter((e) => e.date.startsWith(selectedMonth));
-  }, [expenses, selectedMonth]);
-
-  const summaryData = useMemo(() => {
-    const catMap = {};
-    monthExpenses.forEach((e) => {
-      if (!catMap[e.categoryId]) catMap[e.categoryId] = { count: 0, total: 0 };
-      catMap[e.categoryId].count++;
-      catMap[e.categoryId].total += e.amount;
-    });
-    return Object.entries(catMap)
-      .map(([catId, data]) => {
-        const cat = getCategoryById(catId);
-        return { name: cat?.name || "Other", icon: cat?.icon || "📦", ...data };
-      })
-      .sort((a, b) => b.total - a.total);
-  }, [monthExpenses, getCategoryById]);
-
-  const totalSpent = monthExpenses.reduce((s, e) => s + e.amount, 0);
   const formatCurrency = (v) => `₹${Math.round(v).toLocaleString("en-IN")}`;
-  const [downloading, setDownloading] = useState(false);
 
-  const handleDownload = async () => {
-    setDownloading(true);
-    try {
-      const ExcelJS = (await import("exceljs")).default;
-      const workbook = new ExcelJS.Workbook();
-      workbook.creator = "SpendWise";
-      workbook.created = new Date();
+  // Filtered Datasets
+  const filteredData = useMemo(() => {
+    const now = new Date();
+    let startDate = null;
 
-      /* ---- Sheet 1: Expenses ---- */
-      const sheet = workbook.addWorksheet("Expenses");
-
-      // Title Row
-      sheet.mergeCells("A1:E1");
-      const titleCell = sheet.getCell("A1");
-      const [sYear, sMonth] = selectedMonth.split("-");
-      const monthName = new Date(sYear, sMonth - 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-      titleCell.value = `Expense Report — ${monthName}`;
-      titleCell.font = { size: 16, bold: true, color: { argb: "FF1A1D2E" } };
-      titleCell.alignment = { horizontal: "center" };
-      sheet.getRow(1).height = 32;
-
-      // Summary Row
-      sheet.mergeCells("A2:E2");
-      const sumCell = sheet.getCell("A2");
-      sumCell.value = `Total: ₹${Math.round(totalSpent).toLocaleString("en-IN")} | Transactions: ${monthExpenses.length}`;
-      sumCell.font = { size: 11, color: { argb: "FF5A6178" } };
-      sumCell.alignment = { horizontal: "center" };
-      sheet.getRow(2).height = 22;
-
-      // Headers
-      const headerRow = sheet.addRow(["Date", "Description", "Category", "Amount (₹)", "Running Total"]);
-      headerRow.eachCell((cell) => {
-        cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F6EF7" } };
-        cell.alignment = { horizontal: "center" };
-        cell.border = {
-          bottom: { style: "thin", color: { argb: "FF4F6EF7" } },
-        };
-      });
-
-      // Data rows
-      let runningTotal = 0;
-      const sortedExpenses = [...monthExpenses].sort((a, b) => new Date(a.date) - new Date(b.date));
-      sortedExpenses.forEach((exp, i) => {
-        runningTotal += exp.amount;
-        const cat = getCategoryById(exp.categoryId);
-        const row = sheet.addRow([
-          new Date(exp.date).toLocaleDateString("en-IN"),
-          exp.description,
-          cat?.name || "Other",
-          Math.round(exp.amount * 100) / 100,
-          Math.round(runningTotal * 100) / 100,
-        ]);
-        row.getCell(4).numFmt = "#,##0.00";
-        row.getCell(5).numFmt = "#,##0.00";
-        if (i % 2 === 0) {
-          row.eachCell((cell) => {
-            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F3F9" } };
-          });
-        }
-      });
-
-      sheet.columns = [
-        { width: 14 },
-        { width: 30 },
-        { width: 20 },
-        { width: 15 },
-        { width: 18 },
-      ];
-
-      /* ---- Sheet 2: Category Summary ---- */
-      const catSheet = workbook.addWorksheet("Category Summary");
-      catSheet.mergeCells("A1:C1");
-      catSheet.getCell("A1").value = `Category Breakdown — ${monthName}`;
-      catSheet.getCell("A1").font = { size: 14, bold: true };
-      catSheet.getCell("A1").alignment = { horizontal: "center" };
-
-      const catHeader = catSheet.addRow(["Category", "Transactions", "Total (₹)"]);
-      catHeader.eachCell((cell) => {
-        cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F6EF7" } };
-      });
-
-      summaryData.forEach((item) => {
-        const row = catSheet.addRow([item.name, item.count, Math.round(item.total)]);
-        row.getCell(3).numFmt = "#,##0";
-      });
-
-      catSheet.addRow([]);
-      const totalRow = catSheet.addRow(["TOTAL", monthExpenses.length, Math.round(totalSpent)]);
-      totalRow.font = { bold: true };
-      totalRow.getCell(3).numFmt = "#,##0";
-
-      catSheet.columns = [{ width: 22 }, { width: 16 }, { width: 16 }];
-
-      /* ---- Download ---- */
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `SpendWise_Report_${selectedMonth}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("Excel generation failed:", err);
-    } finally {
-      setDownloading(false);
+    if (dateFilter === "today") {
+      startDate = now.toISOString().split("T")[0];
+    } else if (dateFilter === "week") {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 7);
+      startDate = d.toISOString().split("T")[0];
+    } else if (dateFilter === "month") {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 1);
+      startDate = d.toISOString().split("T")[0];
     }
+
+    const fSales = startDate ? sales.filter((s) => s.date >= startDate) : sales;
+    const fExpenses = startDate ? expenses.filter((e) => e.date >= startDate) : expenses;
+    const fWastage = startDate ? wastage.filter((w) => w.date >= startDate) : wastage;
+
+    const totalRev = fSales.reduce((sum, s) => sum + s.totalAmount, 0);
+    const totalExp = fExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalWaste = fWastage.reduce((sum, w) => sum + w.estimatedCost, 0);
+    const netProfit = totalRev - totalExp - totalWaste;
+    const margin = totalRev > 0 ? (netProfit / totalRev) * 100 : 0;
+
+    return {
+      fSales,
+      fExpenses,
+      fWastage,
+      totalRev,
+      totalExp,
+      totalWaste,
+      netProfit,
+      margin,
+    };
+  }, [sales, expenses, wastage, dateFilter]);
+
+  /* ---- EXPORT TO CSV ---- */
+  const exportToCSV = () => {
+    let csvContent = "data:text/csv;charset=utf-8,";
+    
+    // Header
+    csvContent += "Type,Date,Description/Items,Category/Payment,Amount (INR)\n";
+
+    filteredData.fSales.forEach((s) => {
+      const itemsStr = s.items?.map(i => `${i.name} x${i.qty}`).join("; ") || "Bulk Sales";
+      csvContent += `Sales,${s.date},"${itemsStr}",Sales Revenue,${s.totalAmount}\n`;
+    });
+
+    filteredData.fExpenses.forEach((e) => {
+      csvContent += `Expense,${e.date},"${e.title.replace(/"/g, '""')}",${e.paymentMethod},${e.amount}\n`;
+    });
+
+    filteredData.fWastage.forEach((w) => {
+      csvContent += `Wastage,${w.date},"${w.itemName} (${w.quantity} ${w.unit})",${w.reason},${w.estimatedCost}\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Stall_Financial_Report_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  /* ---- PRINT PDF REPORT ---- */
+  const printReport = () => {
+    window.print();
+  };
+
+  /* ---- BACKUP JSON ---- */
+  const exportJSONBackup = () => {
+    const backupData = {
+      version: "1.0",
+      exportDate: new Date().toISOString(),
+      sales,
+      expenses,
+      wastage,
+      closures,
+    };
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `StallMaster_Backup_${new Date().toISOString().split("T")[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
     <>
-      <Header title="Reports" subtitle="Download monthly expense reports" />
+      <Header
+        title="Financial Reports & Data Export"
+        subtitle="Export P&L ledger, download Excel/CSV, print statements & backup data"
+        onMenuClick={() => {
+          const event = new CustomEvent("toggle-sidebar");
+          window.dispatchEvent(event);
+        }}
+      />
 
-      <div className={styles.page}>
-        {/* Controls */}
-        <div className={styles.controls}>
-          <div className={styles.monthSelect}>
-            <label>Select Month</label>
-            <input 
-              type="month" 
-              value={selectedMonth} 
-              onChange={(e) => setSelectedMonth(e.target.value)} 
-            />
+      <div style={{ padding: "24px", maxWidth: "1100px", margin: "0 auto" }}>
+        {/* ACTION BAR */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "12px" }}>
+          <div style={{ display: "flex", gap: "8px" }}>
+            {["all", "today", "week", "month"].map((f) => (
+              <button
+                key={f}
+                onClick={() => setDateFilter(f)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border-color)",
+                  background: dateFilter === f ? "var(--color-primary)" : "var(--bg-elevated)",
+                  color: dateFilter === f ? "#fff" : "var(--text-primary)",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                {f === "all" ? "All Time" : f === "today" ? "Today" : f === "week" ? "Last 7 Days" : "Last 30 Days"}
+              </button>
+            ))}
           </div>
-          <button className="btn btn-primary btn-lg" onClick={handleDownload} disabled={downloading}>
-            {downloading ? (
-              <><span className="spinner" /> Generating...</>
-            ) : (
-              <>📥 Download Excel Report</>
-            )}
-          </button>
+
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              onClick={exportToCSV}
+              style={{
+                background: "#10b981",
+                color: "#fff",
+                border: "none",
+                padding: "10px 18px",
+                borderRadius: "10px",
+                fontWeight: "bold",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              📊 Export Excel (CSV)
+            </button>
+
+            <button
+              onClick={printReport}
+              style={{
+                background: "#3b82f6",
+                color: "#fff",
+                border: "none",
+                padding: "10px 18px",
+                borderRadius: "10px",
+                fontWeight: "bold",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              🖨️ Print PDF Report
+            </button>
+
+            <button
+              onClick={exportJSONBackup}
+              style={{
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--border-color)",
+                color: "var(--text-primary)",
+                padding: "10px 16px",
+                borderRadius: "10px",
+                fontWeight: "bold",
+                cursor: "pointer",
+              }}
+            >
+              💾 JSON Backup
+            </button>
+          </div>
         </div>
 
-        {/* Preview */}
-        <div className={styles.previewCard}>
-          <div className={styles.previewHeader}>
-            <h3>📄 Report Preview</h3>
-            <span className={styles.previewMeta}>{monthExpenses.length} transactions · {formatCurrency(totalSpent)} total</span>
+        {/* PRINTABLE FINANCIAL STATEMENT CARD */}
+        <div className="card" style={{ padding: "32px", borderRadius: "16px", background: "var(--bg-surface)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid var(--border-color)", paddingBottom: "16px", marginBottom: "20px" }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: "1.5rem" }}>🏪 Stall Financial Statement</h2>
+              <span style={{ fontSize: "0.9rem", color: "var(--text-tertiary)" }}>
+                Period: {dateFilter.toUpperCase()} · Generated on {new Date().toLocaleDateString("en-IN")}
+              </span>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: "0.85rem", color: "var(--text-tertiary)" }}>System Status</div>
+              <div style={{ fontWeight: "700", color: "#10b981" }}>Active & Verified</div>
+            </div>
           </div>
 
-          {/* Category Summary */}
-          <div className={styles.catSummary}>
-            {summaryData.map((item) => (
-              <div key={item.name} className={styles.catRow}>
-                <span className={styles.catIcon}>{item.icon}</span>
-                <span className={styles.catName}>{item.name}</span>
-                <span className={styles.catCount}>{item.count} txn</span>
-                <span className={styles.catTotal}>{formatCurrency(item.total)}</span>
+          {/* FINANCIAL SUMMARY TABLE */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "28px" }}>
+            <div style={{ background: "var(--bg-elevated)", padding: "16px", borderRadius: "12px" }}>
+              <div style={{ fontSize: "0.85rem", color: "var(--text-tertiary)" }}>(+) Sales Revenue</div>
+              <div style={{ fontSize: "1.4rem", fontWeight: "700", color: "#10b981" }}>{formatCurrency(filteredData.totalRev)}</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>{filteredData.fSales.length} Transactions</div>
+            </div>
+
+            <div style={{ background: "var(--bg-elevated)", padding: "16px", borderRadius: "12px" }}>
+              <div style={{ fontSize: "0.85rem", color: "var(--text-tertiary)" }}>(-) Stall Expenses</div>
+              <div style={{ fontSize: "1.4rem", fontWeight: "700", color: "#ef4444" }}>{formatCurrency(filteredData.totalExp)}</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>{filteredData.fExpenses.length} Expense Bills</div>
+            </div>
+
+            <div style={{ background: "var(--bg-elevated)", padding: "16px", borderRadius: "12px" }}>
+              <div style={{ fontSize: "0.85rem", color: "var(--text-tertiary)" }}>(-) Wastage Loss</div>
+              <div style={{ fontSize: "1.4rem", fontWeight: "700", color: "#f59e0b" }}>{formatCurrency(filteredData.totalWaste)}</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>{filteredData.fWastage.length} Wastage Logs</div>
+            </div>
+
+            <div style={{ background: filteredData.netProfit >= 0 ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)", padding: "16px", borderRadius: "12px", border: `1px solid ${filteredData.netProfit >= 0 ? "#10b981" : "#ef4444"}` }}>
+              <div style={{ fontSize: "0.85rem", color: "var(--text-tertiary)" }}>(=) Net Profit</div>
+              <div style={{ fontSize: "1.4rem", fontWeight: "800", color: filteredData.netProfit >= 0 ? "#10b981" : "#ef4444" }}>{formatCurrency(filteredData.netProfit)}</div>
+              <div style={{ fontSize: "0.75rem", fontWeight: "600" }}>Margin: {filteredData.margin.toFixed(1)}%</div>
+            </div>
+          </div>
+
+          {/* DETAILED LEDGER PREVIEW */}
+          <h3 style={{ fontSize: "1.1rem", marginBottom: "12px" }}>Transaction Breakdown</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {filteredData.fSales.slice(0, 5).map(s => (
+              <div key={s.id} style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: "var(--bg-elevated)", borderRadius: "8px", fontSize: "0.9rem" }}>
+                <span>🛒 Sales Entry ({s.date})</span>
+                <span style={{ fontWeight: "700", color: "#10b981" }}>+{formatCurrency(s.totalAmount)}</span>
+              </div>
+            ))}
+            {filteredData.fExpenses.slice(0, 5).map(e => (
+              <div key={e.id} style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: "var(--bg-elevated)", borderRadius: "8px", fontSize: "0.9rem" }}>
+                <span>🧾 Expense: {e.title} ({e.date})</span>
+                <span style={{ fontWeight: "700", color: "#ef4444" }}>-{formatCurrency(e.amount)}</span>
               </div>
             ))}
           </div>
 
-          {/* Recent preview */}
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Description</th>
-                  <th>Category</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...monthExpenses]
-                  .sort((a, b) => new Date(b.date) - new Date(a.date))
-                  .slice(0, 10)
-                  .map((exp) => {
-                    const cat = getCategoryById(exp.categoryId);
-                    return (
-                      <tr key={exp.id}>
-                        <td>{new Date(exp.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</td>
-                        <td>{exp.description}</td>
-                        <td><span className={styles.badge} style={{ background: cat?.color + "18", color: cat?.color }}>{cat?.name}</span></td>
-                        <td className={styles.amtCell}>{formatCurrency(exp.amount)}</td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-            {monthExpenses.length > 10 && (
-              <p className={styles.moreText}>... and {monthExpenses.length - 10} more in the full report</p>
-            )}
+          {/* DANGER ZONE / RESET */}
+          <div style={{ marginTop: "40px", paddingTop: "20px", borderTop: "1px dashed var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: "0.9rem", fontWeight: "600", color: "#ef4444" }}>Reset System Data</div>
+              <div style={{ fontSize: "0.8rem", color: "var(--text-tertiary)" }}>Wipe all local stall records and start fresh</div>
+            </div>
+            <button
+              onClick={resetStallData}
+              style={{ background: "#ef444420", color: "#ef4444", border: "1px solid #ef4444", padding: "8px 16px", borderRadius: "8px", fontSize: "0.85rem", fontWeight: "bold", cursor: "pointer" }}
+            >
+              ⚠️ Reset All Data
+            </button>
           </div>
         </div>
       </div>

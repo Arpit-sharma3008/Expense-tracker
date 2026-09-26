@@ -2,285 +2,330 @@
 
 import { useState, useMemo } from "react";
 import Header from "@/components/Header/Header";
-import { useData } from "@/context/DataContext";
-import styles from "./expenses.module.css";
+import { useData, STALL_EXPENSE_CATEGORIES } from "@/context/DataContext";
 
 export default function ExpensesPage() {
-  const { expenses, categories, addExpense, deleteExpense, clearAllExpenses, getCategoryById, uploadReceipt } = useData();
-  const [showForm, setShowForm] = useState(false);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [filter, setFilter] = useState("all");
-  const [search, setSearch] = useState("");
-  const [dateRange, setDateRange] = useState("this-month");
-  const [receiptFile, setReceiptFile] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [viewReceiptUrl, setViewReceiptUrl] = useState(null);
+  const { expenses, addExpense, deleteExpense, getCategoryById } = useData();
 
-  /* Form state */
-  const [form, setForm] = useState({
-    description: "",
-    amount: "",
-    categoryId: "cat-1",
-    date: new Date().toISOString().split("T")[0],
-  });
+  // Form State
+  const [title, setTitle] = useState("");
+  const [amount, setAmount] = useState("");
+  const [categoryId, setCategoryId] = useState(STALL_EXPENSE_CATEGORIES[0].id);
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [vendorName, setVendorName] = useState("");
+  const [notes, setNotes] = useState("");
+  const [receiptImage, setReceiptImage] = useState(null);
+
+  // Filters
+  const [filterCat, setFilterCat] = useState("all");
+  const [activeModalImage, setActiveModalImage] = useState(null);
+
+  const formatCurrency = (v) => `₹${Math.round(v).toLocaleString("en-IN")}`;
+
+  // Image Upload Reader
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image size should be less than 5MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setReceiptImage(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.description || !form.amount) return;
-    setIsSubmitting(true);
-    
-    let receiptUrl = null;
-    if (receiptFile) {
-      receiptUrl = await uploadReceipt(receiptFile);
-    }
-    
+    if (!title || !amount) return alert("Please provide title and amount.");
+
     await addExpense({
-      ...form,
-      amount: parseFloat(form.amount),
-      receiptUrl,
+      title,
+      amount: parseFloat(amount),
+      categoryId,
+      date,
+      paymentMethod,
+      vendorName,
+      receiptImage,
+      notes,
     });
-    setForm({ description: "", amount: "", categoryId: "cat-1", date: new Date().toISOString().split("T")[0] });
-    setReceiptFile(null);
-    setShowForm(false);
-    setIsSubmitting(false);
+
+    setTitle("");
+    setAmount("");
+    setVendorName("");
+    setNotes("");
+    setReceiptImage(null);
+    alert("✅ Expense & Bill Record Saved!");
   };
 
-  /* Filter logic */
   const filteredExpenses = useMemo(() => {
-    let list = [...expenses];
-
-    // Date range filter
-    const now = new Date();
-    if (dateRange === "today") {
-      const today = now.toISOString().split("T")[0];
-      list = list.filter((e) => e.date === today);
-    } else if (dateRange === "this-week") {
-      const weekAgo = new Date(now);
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      list = list.filter((e) => new Date(e.date) >= weekAgo);
-    } else if (dateRange === "this-month") {
-      const prefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-      list = list.filter((e) => e.date.startsWith(prefix));
-    }
-
-    // Category filter
-    if (filter !== "all") {
-      list = list.filter((e) => e.categoryId === filter);
-    }
-
-    // Search
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter((e) => e.description.toLowerCase().includes(q));
-    }
-
-    return list;
-  }, [expenses, filter, search, dateRange]);
-
-  const totalFiltered = filteredExpenses.reduce((s, e) => s + e.amount, 0);
-  const formatCurrency = (v) => `₹${v.toLocaleString("en-IN")}`;
+    if (filterCat === "all") return expenses;
+    return expenses.filter(e => e.categoryId === filterCat);
+  }, [expenses, filterCat]);
 
   return (
     <>
-      <Header title="Expenses" subtitle="Track and manage all your expenses" />
+      <Header
+        title="Expenses & Bill Receipts"
+        subtitle="Track stock, packaging, rent, utilities & attached bills"
+        onMenuClick={() => {
+          const event = new CustomEvent("toggle-sidebar");
+          window.dispatchEvent(event);
+        }}
+      />
 
-      <div className={styles.page}>
-        {/* ---- Toolbar ---- */}
-        <div className={styles.toolbar}>
-          <div className={styles.toolbarLeft}>
-            <div className={styles.searchBox}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search expenses..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className={styles.searchInput}
-              />
-            </div>
-            <select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className={styles.select}>
-              <option value="today">Today</option>
-              <option value="this-week">This Week</option>
-              <option value="this-month">This Month</option>
-              <option value="all">All Time</option>
-            </select>
-            <select value={filter} onChange={(e) => setFilter(e.target.value)} className={styles.select}>
-              <option value="all">All Categories</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className={styles.toolbarRight}>
-            {expenses.length > 0 && (
-              <button className="btn btn-danger btn-sm" onClick={() => setShowClearConfirm(true)}>
-                🗑️ Clear All
-              </button>
-            )}
-            <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-              + Add Expense
-            </button>
-          </div>
-        </div>
-
-        {/* ---- Summary Strip ---- */}
-        <div className={styles.summary}>
-          <span className={styles.summaryLabel}>
-            {filteredExpenses.length} expense{filteredExpenses.length !== 1 ? "s" : ""}
-          </span>
-          <span className={styles.summaryTotal}>Total: {formatCurrency(totalFiltered)}</span>
-        </div>
-
-        {/* ---- Expense List ---- */}
-        <div className={styles.list}>
-          {filteredExpenses.length === 0 ? (
-            <div className={styles.empty}>
-              <span className={styles.emptyIcon}>📭</span>
-              <p>No expenses found</p>
-              <button className="btn btn-primary btn-sm" onClick={() => setShowForm(true)}>Add your first expense</button>
-            </div>
-          ) : (
-            filteredExpenses.map((exp) => {
-              const cat = getCategoryById(exp.categoryId);
-              return (
-                <div key={exp.id} className={styles.expenseItem}>
-                  <div className={styles.expIcon} style={{ background: cat?.color + "18" }}>
-                    {cat?.icon || "📦"}
-                  </div>
-                  <div className={styles.expInfo}>
-                    <span className={styles.expName}>{exp.description}</span>
-                    <span className={styles.expMeta}>{cat?.name} · {new Date(exp.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
-                  </div>
-                  {exp.receiptUrl && (
-                    <button 
-                      className={styles.receiptBtn} 
-                      onClick={() => setViewReceiptUrl(exp.receiptUrl)} 
-                      title="View Receipt"
-                    >
-                      📎
-                    </button>
-                  )}
-                  <span className={styles.expAmount}>-{formatCurrency(exp.amount)}</span>
-                  <button className={styles.deleteBtn} onClick={() => deleteExpense(exp.id)} aria-label="Delete">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    </svg>
-                  </button>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* ---- Add Expense Modal ---- */}
-      {showForm && (
-        <div className={styles.modalOverlay} onClick={() => setShowForm(false)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h3>Add New Expense</h3>
-              <button className={styles.closeBtn} onClick={() => setShowForm(false)}>×</button>
-            </div>
-            <form onSubmit={handleSubmit} className={styles.form}>
-              <label className={styles.field}>
-                <span>Description</span>
+      <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "24px" }}>
+          {/* LEFT: EXPENSE ENTRY FORM */}
+          <div className="card" style={{ padding: "24px", borderRadius: "16px" }}>
+            <h3 style={{ marginTop: 0, marginBottom: "16px", fontSize: "1.15rem" }}>Log New Expense</h3>
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div>
+                <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Item / Description</label>
                 <input
                   type="text"
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="e.g. Lunch at cafe"
+                  placeholder="e.g. 10kg Amul Butter, Paper Cups 500pcs"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
                   required
-                  autoFocus
+                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border-color)", background: "var(--bg-elevated)", color: "var(--text-primary)" }}
                 />
-              </label>
-              <label className={styles.field}>
-                <span>Amount (₹)</span>
-                <input
-                  type="number"
-                  value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  placeholder="500"
-                  min="0"
-                  step="0.01"
-                  required
-                />
-              </label>
-              <label className={styles.field}>
-                <span>Category</span>
-                <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Amount (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 1200"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    required
+                    min="1"
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border-color)", background: "var(--bg-elevated)", color: "var(--text-primary)", fontWeight: "bold" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Date</label>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    required
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border-color)", background: "var(--bg-elevated)", color: "var(--text-primary)" }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Category</label>
+                <select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border-color)", background: "var(--bg-elevated)", color: "var(--text-primary)" }}
+                >
+                  {STALL_EXPENSE_CATEGORIES.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.icon} {cat.name}
+                    </option>
                   ))}
                 </select>
-              </label>
-              <label className={styles.field}>
-                <span>Date</span>
-                <input
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
-                />
-              </label>
-              <label className={styles.field}>
-                <span>Receipt Image (Optional)</span>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Payment Method</label>
+                  <select
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border-color)", background: "var(--bg-elevated)", color: "var(--text-primary)" }}
+                  >
+                    <option value="Cash">💵 Cash</option>
+                    <option value="UPI">📱 UPI / QR</option>
+                    <option value="Card">💳 Card</option>
+                    <option value="Vendor Credit">⏳ Pending Credit</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Vendor / Supplier</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Ramesh Milk Depot"
+                    value={vendorName}
+                    onChange={(e) => setVendorName(e.target.value)}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border-color)", background: "var(--bg-elevated)", color: "var(--text-primary)" }}
+                  />
+                </div>
+              </div>
+
+              {/* Bill Photo Attachment */}
+              <div>
+                <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Attach Bill / Receipt Photo 📷</label>
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => setReceiptFile(e.target.files[0])}
+                  onChange={handleImageUpload}
+                  style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid var(--border-color)", background: "var(--bg-elevated)", color: "var(--text-primary)", fontSize: "0.85rem" }}
                 />
-              </label>
-              <div className={styles.formActions}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-                  {isSubmitting ? "Adding..." : "Add Expense"}
-                </button>
+                {receiptImage && (
+                  <div style={{ marginTop: "10px", position: "relative" }}>
+                    <img src={receiptImage} alt="Receipt preview" style={{ width: "100%", maxHeight: "140px", objectFit: "cover", borderRadius: "8px" }} />
+                    <button type="button" onClick={() => setReceiptImage(null)} style={{ position: "absolute", top: 5, right: 5, background: "rgba(0,0,0,0.7)", color: "#fff", border: "none", borderRadius: "50%", width: 22, height: 22, cursor: "pointer" }}>✕</button>
+                  </div>
+                )}
               </div>
+
+              <div>
+                <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Notes</label>
+                <input
+                  type="text"
+                  placeholder="Optional details..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid var(--border-color)", background: "var(--bg-elevated)", color: "var(--text-primary)" }}
+                />
+              </div>
+
+              <button type="submit" className="btn btn-primary" style={{ padding: "12px", borderRadius: "10px", fontWeight: "bold", fontSize: "1rem", cursor: "pointer", marginTop: "6px" }}>
+                Save Expense & Bill
+              </button>
             </form>
           </div>
-        </div>
-      )}
 
-      {/* ---- Clear All Confirmation Modal ---- */}
-      {showClearConfirm && (
-        <div className={styles.modalOverlay} onClick={() => setShowClearConfirm(false)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
-            <div className={styles.modalHeader}>
-              <h3>Clear All Expenses?</h3>
-              <button className={styles.closeBtn} onClick={() => setShowClearConfirm(false)}>×</button>
+          {/* RIGHT: EXPENSES LIST & BILL PREVIEWS */}
+          <div className="card" style={{ padding: "24px", borderRadius: "16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
+              <h3 style={{ margin: 0, fontSize: "1.15rem" }}>Expense Ledger ({filteredExpenses.length})</h3>
+              <select
+                value={filterCat}
+                onChange={(e) => setFilterCat(e.target.value)}
+                style={{ padding: "6px 12px", borderRadius: "8px", border: "1px solid var(--border-color)", background: "var(--bg-elevated)", color: "var(--text-primary)", fontSize: "0.85rem" }}
+              >
+                <option value="all">All Categories</option>
+                {STALL_EXPENSE_CATEGORIES.map(c => (
+                  <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                ))}
+              </select>
             </div>
-            <div className={styles.confirmBody}>
-              <span className={styles.confirmIcon}>⚠️</span>
-              <p>This will archive <strong>{expenses.length}</strong> expenses and reset your list to zero. Archived data will still be available in your reports.</p>
-              <div className={styles.autoResetNote}>
-                <span>💡</span>
-                <span>Tip: Expenses also auto-reset on the 1st of every month so you always start fresh!</span>
+
+            {filteredExpenses.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px", maxHeight: "580px", overflowY: "auto" }}>
+                {filteredExpenses.map((exp) => {
+                  const cat = getCategoryById(exp.categoryId);
+                  return (
+                    <div
+                      key={exp.id}
+                      style={{
+                        display: "flex",
+                        justify: "space-between",
+                        alignItems: "center",
+                        padding: "14px",
+                        background: "var(--bg-elevated)",
+                        border: "1px solid var(--border-color)",
+                        borderRadius: "12px",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <div style={{ fontSize: "1.6rem", background: cat.color + "20", padding: "10px", borderRadius: "12px" }}>
+                          {cat.icon}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: "600", fontSize: "0.95rem" }}>{exp.title}</div>
+                          <div style={{ fontSize: "0.8rem", color: "var(--text-tertiary)" }}>
+                            {cat.name} · {exp.date} · <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>{exp.paymentMethod}</span>
+                            {exp.vendorName && ` · Vendor: ${exp.vendorName}`}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        {exp.receiptImage && (
+                          <button
+                            onClick={() => setActiveModalImage(exp.receiptImage)}
+                            style={{
+                              background: "none",
+                              border: "1px solid var(--color-primary)",
+                              color: "var(--color-primary)",
+                              padding: "4px 8px",
+                              borderRadius: "6px",
+                              fontSize: "0.8rem",
+                              fontWeight: "bold",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            📷 View Bill
+                          </button>
+                        )}
+                        <span style={{ fontWeight: "700", fontSize: "1.05rem", color: "#ef4444" }}>
+                          {formatCurrency(exp.amount)}
+                        </span>
+                        <button
+                          onClick={() => deleteExpense(exp.id)}
+                          style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "1.1rem" }}
+                          title="Delete expense"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className={styles.formActions}>
-                <button className="btn btn-secondary" onClick={() => setShowClearConfirm(false)}>Cancel</button>
-                <button className="btn btn-danger" onClick={() => { clearAllExpenses(); setShowClearConfirm(false); }}>Yes, Clear All</button>
+            ) : (
+              <div style={{ padding: "40px", textAlign: "center", color: "var(--text-tertiary)" }}>
+                No expenses logged for this category.
               </div>
-            </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
-      {/* ---- View Receipt Modal ---- */}
-      {viewReceiptUrl && (
-        <div className={styles.modalOverlay} onClick={() => setViewReceiptUrl(null)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()} style={{ padding: "16px" }}>
-            <div className={styles.modalHeader} style={{ borderBottom: "none", padding: "0 0 16px 0" }}>
-              <h3>Receipt Image</h3>
-              <button className={styles.closeBtn} onClick={() => setViewReceiptUrl(null)}>×</button>
-            </div>
-            <img 
-              src={viewReceiptUrl} 
-              alt="Receipt" 
-              style={{ width: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: "8px" }} 
-            />
+      {/* FULLSCREEN BILL PREVIEW MODAL */}
+      {activeModalImage && (
+        <div
+          onClick={() => setActiveModalImage(null)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.85)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: "20px",
+          }}
+        >
+          <div style={{ position: "relative", maxWidth: "90vw", maxHeight: "90vh" }}>
+            <img src={activeModalImage} alt="Full bill receipt" style={{ maxWidth: "100%", maxHeight: "85vh", borderRadius: "12px", objectFit: "contain" }} />
+            <button
+              onClick={() => setActiveModalImage(null)}
+              style={{
+                position: "absolute",
+                top: "-15px",
+                right: "-15px",
+                background: "#ef4444",
+                color: "#fff",
+                border: "none",
+                borderRadius: "50%",
+                width: 36,
+                height: 36,
+                fontSize: "1.2rem",
+                fontWeight: "bold",
+                cursor: "pointer",
+              }}
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}

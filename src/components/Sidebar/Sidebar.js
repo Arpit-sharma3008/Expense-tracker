@@ -6,25 +6,29 @@ import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import styles from "./Sidebar.module.css";
 
-const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: "📊" },
-  { href: "/incomes", label: "Incomes", icon: "💵" },
-  { href: "/expenses", label: "Expenses", icon: "💸" },
-  { href: "/debts", label: "Money Manager", icon: "💰" },
-  { href: "/goals", label: "Savings Goals", icon: "🎯" },
-  { href: "/subscriptions", label: "Subscriptions", icon: "🔁" },
-  { href: "/budgets", label: "Budgets", icon: "🎯" },
-  { href: "/reports", label: "Reports", icon: "📄" },
+const MANAGER_NAV = [
+  { href: "/", label: "Dashboard (P&L)", icon: "📊" },
+  { href: "/sales", label: "Daily Sales POS", icon: "🛒" },
+  { href: "/expenses", label: "Expense & Bills", icon: "🧾" },
+  { href: "/wastage", label: "Wastage Log", icon: "🗑️" },
+  { href: "/closure", label: "Cash Drawer", icon: "💵" },
+  { href: "/vendors", label: "Vendors & Dues", icon: "👥" },
+  { href: "/menu", label: "Menu & SKUs", icon: "🏷️" },
+  { href: "/staff", label: "Staff & Team", icon: "👨‍🍳" },
+  { href: "/reports", label: "Reports & Export", icon: "📄" },
+];
+
+const EMPLOYEE_NAV = [
+  { href: "/sales", label: "Daily Sales POS", icon: "🛒" },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
-  const { user, signOut } = useAuth();
+  const { role, activeStaff, signOut } = useAuth();
 
-  const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
-  const displayEmail = user?.email || "";
-  const initial = displayName.charAt(0).toUpperCase();
+  const isManager = role === "manager";
+  const navItems = isManager ? MANAGER_NAV : EMPLOYEE_NAV;
 
   return (
     <>
@@ -34,17 +38,43 @@ export default function Sidebar({ isOpen, onClose }) {
       <aside className={`${styles.sidebar} ${isOpen ? styles.open : ""}`}>
         {/* Logo */}
         <div className={styles.logo}>
-          <img src="/logo.svg" alt="SpendWise" className={styles.logoImg} />
+          <div style={{ fontSize: "1.8rem", marginRight: "8px" }}>🏪</div>
           <div className={styles.logoText}>
-            <h1>SpendWise</h1>
-            <span>Smart Finance</span>
+            <h1 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0, background: "linear-gradient(135deg, #10b981, #3b82f6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>StallMaster</h1>
+            <span style={{ fontSize: "0.75rem", color: isManager ? "#10b981" : "#3b82f6", fontWeight: "600" }}>
+              {isManager ? "👑 Manager Mode" : "👨‍🍳 Cashier Terminal"}
+            </span>
           </div>
         </div>
 
+        {/* STAFF SESSION INFO TAB (Displayed when Staff is logged in) */}
+        {!isManager && activeStaff && (
+          <div style={{
+            margin: "0 12px 16px 12px",
+            padding: "12px",
+            background: "linear-gradient(135deg, rgba(59,130,246,0.1), rgba(16,185,129,0.1))",
+            border: "1px solid rgba(59,130,246,0.3)",
+            borderRadius: "12px",
+          }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: "700", color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px" }}>
+              👤 Staff Session Info
+            </div>
+            <div style={{ fontWeight: "700", fontSize: "0.95rem", color: "var(--text-primary)" }}>
+              {activeStaff.name}
+            </div>
+            <div style={{ fontSize: "0.8rem", color: "var(--text-tertiary)", marginTop: "2px" }}>
+              Ref Code: <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>{activeStaff.code}</span>
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "#10b981", fontWeight: "600", marginTop: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} /> Shift Active
+            </div>
+          </div>
+        )}
+
         {/* Navigation */}
         <nav className={styles.nav}>
-          <span className={styles.navLabel}>Menu</span>
-          {NAV_ITEMS.map((item) => {
+          <span className={styles.navLabel}>{isManager ? "Manager Navigation" : "Cashier Menu"}</span>
+          {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
@@ -61,27 +91,34 @@ export default function Sidebar({ isOpen, onClose }) {
           })}
         </nav>
 
-        {/* Bottom Section */}
+        {/* Bottom Section & Logout */}
         <div className={styles.bottom}>
+          <button
+            onClick={signOut}
+            style={{
+              width: "100%",
+              padding: "10px",
+              borderRadius: "10px",
+              background: "rgba(239,68,68,0.15)",
+              color: "#ef4444",
+              border: "1px solid rgba(239,68,68,0.3)",
+              fontWeight: "700",
+              fontSize: "0.85rem",
+              cursor: "pointer",
+              marginBottom: "12px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+            }}
+          >
+            🚪 {isManager ? "Sign Out / Lock Account" : "End Shift & Sign Out"}
+          </button>
+
           <button className={styles.themeToggle} onClick={toggleTheme}>
             <span className={styles.navIcon}>{theme === "light" ? "🌙" : "☀️"}</span>
             <span className={styles.navText}>{theme === "light" ? "Dark Mode" : "Light Mode"}</span>
           </button>
-
-          <div className={styles.userCard}>
-            <div className={styles.avatar}>{initial}</div>
-            <div className={styles.userInfo}>
-              <span className={styles.userName}>{displayName}</span>
-              <span className={styles.userEmail}>{displayEmail}</span>
-            </div>
-            <button className={styles.signOutBtn} onClick={signOut} title="Sign out">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
-            </button>
-          </div>
         </div>
       </aside>
     </>

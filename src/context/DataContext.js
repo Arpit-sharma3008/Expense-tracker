@@ -6,655 +6,374 @@ import { useAuth } from "./AuthContext";
 
 const DataContext = createContext();
 
-/* ---- Default Categories (stored in app, not DB) ---- */
-const DEFAULT_CATEGORIES = [
-  { id: "cat-1", name: "Food & Dining", icon: "🍕", color: "#f59e42" },
-  { id: "cat-2", name: "Transport", icon: "🚗", color: "#4f6ef7" },
-  { id: "cat-3", name: "Shopping", icon: "🛍️", color: "#a78bfa" },
-  { id: "cat-4", name: "Bills & Utilities", icon: "💡", color: "#f472b6" },
-  { id: "cat-5", name: "Entertainment", icon: "🎬", color: "#34d399" },
-  { id: "cat-6", name: "Health", icon: "💊", color: "#e74c3c" },
-  { id: "cat-7", name: "Education", icon: "📚", color: "#38bdf8" },
-  { id: "cat-8", name: "Groceries", icon: "🛒", color: "#2ecc71" },
-  { id: "cat-9", name: "Rent", icon: "🏠", color: "#f0a500" },
-  { id: "cat-10", name: "Subscriptions", icon: "🔁", color: "#6b8aff" },
-  { id: "cat-11", name: "Travel", icon: "✈️", color: "#fbbf24" },
-  { id: "cat-12", name: "Other", icon: "📦", color: "#8e95a9" },
+/* ---- Stall Expense Categories ---- */
+export const STALL_EXPENSE_CATEGORIES = [
+  { id: "cat-ingredients", name: "Ingredients & Stock", icon: "🥦", color: "#10b981" },
+  { id: "cat-packaging", name: "Packaging & Disposable", icon: "📦", color: "#f59e0b" },
+  { id: "cat-rent", name: "Stall Rent & Space Fee", icon: "🎪", color: "#8b5cf6" },
+  { id: "cat-utilities", name: "Gas, Power & Water", icon: "⚡", color: "#ef4444" },
+  { id: "cat-staff", name: "Staff & Helper Wages", icon: "👨‍🍳", color: "#3b82f6" },
+  { id: "cat-maintenance", name: "Equipment & Repairs", icon: "🛠️", color: "#ec4899" },
+  { id: "cat-marketing", name: "Banners & Promotion", icon: "📢", color: "#06b6d4" },
+  { id: "cat-miscellaneous", name: "Miscellaneous", icon: "🌀", color: "#64748b" },
 ];
 
-/* ---- Provider ---- */
+/* ---- Default Stall Menu / SKUs Template ---- */
+const DEFAULT_SKUS = [
+  { id: "sku-1", code: "SKU-001", name: "Masala Chai", category: "Beverages", price: 20, costPrice: 6, stock: 100, unit: "cup" },
+  { id: "sku-2", code: "SKU-002", name: "Cold Coffee", category: "Beverages", price: 60, costPrice: 22, stock: 50, unit: "cup" },
+  { id: "sku-3", code: "SKU-003", name: "Veg Samosa", category: "Snacks", price: 25, costPrice: 10, stock: 80, unit: "pc" },
+  { id: "sku-4", code: "SKU-004", name: "Cheese Grilled Sandwich", category: "Snacks", price: 80, costPrice: 35, stock: 40, unit: "pc" },
+  { id: "sku-5", code: "SKU-005", name: "Mineral Water Bottle 500ml", category: "Beverages", price: 10, costPrice: 5, stock: 120, unit: "bottle" },
+  { id: "sku-6", code: "SKU-006", name: "French Fries", category: "Snacks", price: 70, costPrice: 25, stock: 30, unit: "plate" },
+];
+
+/* ---- Helper for Local Storage Persistence ---- */
+const loadLocal = (key, fallback) => {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const item = localStorage.getItem(`stall_app_${key}`);
+    return item ? JSON.parse(item) : fallback;
+  } catch (err) {
+    console.error(`Error reading ${key} from localStorage:`, err);
+    return fallback;
+  }
+};
+
+const saveLocal = (key, data) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(`stall_app_${key}`, JSON.stringify(data));
+  } catch (err) {
+    console.error(`Error saving ${key} to localStorage:`, err);
+  }
+};
+
 export function DataProvider({ children }) {
   const { user } = useAuth();
-  const [expenses, setExpenses] = useState([]);
-  const [debts, setDebts] = useState([]);
-  const [credits, setCredits] = useState([]);
-  const [subscriptions, setSubscriptions] = useState([]);
-  const [budgets, setBudgets] = useState([]);
-  const [incomes, setIncomes] = useState([]);
-  const [savingsGoals, setSavingsGoals] = useState([]);
-  const [categories] = useState(DEFAULT_CATEGORIES);
-  const [dataLoading, setDataLoading] = useState(true);
+  
+  // Data State with local fallback initializers
+  const [sales, setSales] = useState(() => loadLocal("sales", []));
+  const [expenses, setExpenses] = useState(() => loadLocal("expenses", []));
+  const [wastage, setWastage] = useState(() => loadLocal("wastage", []));
+  const [closures, setClosures] = useState(() => loadLocal("closures", []));
+  const [vendors, setVendors] = useState(() => loadLocal("vendors", []));
+  const [skus, setSkus] = useState(() => loadLocal("skus", DEFAULT_SKUS));
+  const [categories] = useState(STALL_EXPENSE_CATEGORIES);
+  const [dataLoading, setDataLoading] = useState(false);
 
-  /* ---- Mappers (DB snake_case → JS camelCase) ---- */
-  const mapExpense = (row) => ({
-    id: row.id,
-    categoryId: row.category_id,
-    description: row.description,
-    amount: parseFloat(row.amount),
-    date: row.date,
-    receiptUrl: row.receipt_url,
-    createdAt: row.created_at,
-  });
+  // Sync state changes to LocalStorage
+  useEffect(() => saveLocal("sales", sales), [sales]);
+  useEffect(() => saveLocal("expenses", expenses), [expenses]);
+  useEffect(() => saveLocal("wastage", wastage), [wastage]);
+  useEffect(() => saveLocal("closures", closures), [closures]);
+  useEffect(() => saveLocal("vendors", vendors), [vendors]);
+  useEffect(() => saveLocal("skus", skus), [skus]);
 
-  const mapDebt = (row) => ({
-    id: row.id,
-    name: row.name,
-    type: row.type,
-    principal: parseFloat(row.principal),
-    remainingBalance: parseFloat(row.remaining_balance),
-    interestRate: parseFloat(row.interest_rate),
-    minimumPayment: parseFloat(row.minimum_payment),
-    dueDate: row.due_date,
-    createdAt: row.created_at,
-  });
-
-  const mapSubscription = (row) => ({
-    id: row.id,
-    name: row.name,
-    amount: parseFloat(row.amount),
-    frequency: row.frequency,
-    nextBillingDate: row.next_billing_date,
-    icon: row.icon,
-    active: row.active,
-  });
-
-  const mapBudget = (row) => ({
-    id: row.id,
-    categoryId: row.category_id,
-    monthlyLimit: parseFloat(row.monthly_limit),
-    month: row.month,
-  });
-
-  const mapCredit = (row) => ({
-    id: row.id,
-    personName: row.person_name,
-    totalAmount: parseFloat(row.total_amount),
-    receivedAmount: parseFloat(row.received_amount),
-    expectedDate: row.expected_date,
-    status: row.status,
-    notes: row.notes,
-    createdAt: row.created_at,
-  });
-
-  const mapIncome = (row) => ({
-    id: row.id,
-    source: row.source,
-    amount: parseFloat(row.amount),
-    date: row.date,
-    notes: row.notes,
-    createdAt: row.created_at,
-  });
-
-  const mapSavingsGoal = (row) => ({
-    id: row.id,
-    name: row.name,
-    targetAmount: parseFloat(row.target_amount),
-    currentAmount: parseFloat(row.current_amount),
-    targetDate: row.target_date,
-    icon: row.icon,
-    color: row.color,
-    createdAt: row.created_at,
-  });
-
-  /* ---- Fetch all data when user logs in ---- */
+  // Optional Supabase Fetching if logged in
   useEffect(() => {
-    if (!user) {
-      setExpenses([]);
-      setDebts([]);
-      setCredits([]);
-      setSubscriptions([]);
-      setBudgets([]);
-      setIncomes([]);
-      setSavingsGoals([]);
-      setDataLoading(false);
-      return;
-    }
-
-    const fetchAll = async () => {
+    if (!user) return;
+    const fetchFromSupabase = async () => {
       setDataLoading(true);
       try {
-        const [expRes, debtRes, creditRes, subRes, budgetRes, incomeRes, goalRes] = await Promise.all([
+        const [expRes, saleRes, wasteRes] = await Promise.all([
           supabase.from("expenses").select("*").eq("user_id", user.id).order("date", { ascending: false }),
-          supabase.from("debts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-          supabase.from("credits").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-          supabase.from("subscriptions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-          supabase.from("budgets").select("*").eq("user_id", user.id),
-          supabase.from("incomes").select("*").eq("user_id", user.id).order("date", { ascending: false }),
-          supabase.from("savings_goals").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+          supabase.from("sales").select("*").eq("user_id", user.id).order("date", { ascending: false }),
+          supabase.from("wastage").select("*").eq("user_id", user.id).order("date", { ascending: false }),
         ]);
 
-        // Map DB snake_case to camelCase
-        setExpenses((expRes.data || []).map(mapExpense));
-        setDebts((debtRes.data || []).map(mapDebt));
-        setCredits((creditRes.data || []).map(mapCredit));
-        
-        const loadedSubs = (subRes.data || []).map(mapSubscription);
-        setSubscriptions(loadedSubs);
-        
-        setBudgets((budgetRes.data || []).map(mapBudget));
-        setIncomes((incomeRes.data || []).map(mapIncome));
-        setSavingsGoals((goalRes.data || []).map(mapSavingsGoal));
-
-        // ---- AUTO-SUBSCRIPTIONS ----
-        // Check if any active subscriptions have a billing date that is today or past
-        const today = new Date().toISOString().split("T")[0];
-        
-        for (const sub of loadedSubs) {
-          if (sub.active && sub.nextBillingDate && sub.nextBillingDate <= today) {
-            // Auto-log expense
-            const expenseCat = DEFAULT_CATEGORIES.find(c => c.name === "Subscriptions");
-            await supabase.from("expenses").insert({
-              user_id: user.id,
-              description: `Auto-billed: ${sub.name}`,
-              amount: sub.amount,
-              category_id: expenseCat ? expenseCat.id : "cat-10",
-              date: sub.nextBillingDate,
-            });
-
-            // Calculate next billing date
-            const dateObj = new Date(sub.nextBillingDate);
-            if (sub.frequency === "monthly") dateObj.setMonth(dateObj.getMonth() + 1);
-            if (sub.frequency === "yearly") dateObj.setFullYear(dateObj.getFullYear() + 1);
-            if (sub.frequency === "weekly") dateObj.setDate(dateObj.getDate() + 7);
-            
-            const nextDateStr = dateObj.toISOString().split("T")[0];
-            
-            // Update subscription
-            await supabase.from("subscriptions").update({ next_billing_date: nextDateStr }).eq("id", sub.id);
-            
-            // If we generated expenses, we should trigger a refetch of expenses and subscriptions to keep state fresh.
-            // But to avoid complexity, we can just do a fast local state update or simple refetch.
-          }
+        if (expRes.data && expRes.data.length > 0) {
+          setExpenses(expRes.data.map(r => ({
+            id: r.id,
+            categoryId: r.category_id || "cat-miscellaneous",
+            title: r.description || r.title || "Expense",
+            amount: parseFloat(r.amount),
+            date: r.date,
+            receiptImage: r.receipt_url || r.receipt_image,
+            paymentMethod: r.payment_method || "Cash",
+            vendorName: r.vendor_name || "",
+            notes: r.notes || "",
+            createdAt: r.created_at,
+          })));
         }
 
+        if (saleRes.data && saleRes.data.length > 0) {
+          setSales(saleRes.data.map(r => ({
+            id: r.id,
+            date: r.date,
+            time: r.time || "12:00",
+            totalAmount: parseFloat(r.total_amount || r.amount || 0),
+            cashAmount: parseFloat(r.cash_amount || 0),
+            upiAmount: parseFloat(r.upi_amount || 0),
+            cardAmount: parseFloat(r.card_amount || 0),
+            customerCount: r.customer_count || 0,
+            items: r.items || [],
+            notes: r.notes || "",
+            createdAt: r.created_at,
+          })));
+        }
+
+        if (wasteRes.data && wasteRes.data.length > 0) {
+          setWastage(wasteRes.data.map(r => ({
+            id: r.id,
+            date: r.date,
+            itemName: r.item_name,
+            quantity: parseFloat(r.quantity),
+            unit: r.unit || "pcs",
+            estimatedCost: parseFloat(r.estimated_cost),
+            reason: r.reason || "Spoiled",
+            notes: r.notes || "",
+            createdAt: r.created_at,
+          })));
+        }
       } catch (err) {
-        console.error("Error fetching data:", err);
+        console.warn("Supabase sync optional warning:", err);
       } finally {
         setDataLoading(false);
       }
     };
 
-    fetchAll();
+    fetchFromSupabase();
   }, [user]);
 
-  /* ======== EXPENSES ======== */
-  const addExpense = useCallback(async (expense) => {
-    if (!user) return;
-    
-    const payload = {
-      user_id: user.id,
-      description: expense.description,
-      amount: expense.amount,
-      category_id: expense.categoryId,
-      date: expense.date,
+  /* ======== SALES MANAGEMENT ======== */
+  const addSale = useCallback(async (saleData) => {
+    const newSale = {
+      id: saleData.id || `sale-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      date: saleData.date || new Date().toISOString().split("T")[0],
+      time: saleData.time || new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+      totalAmount: parseFloat(saleData.totalAmount || 0),
+      cashAmount: parseFloat(saleData.cashAmount || 0),
+      upiAmount: parseFloat(saleData.upiAmount || 0),
+      cardAmount: parseFloat(saleData.cardAmount || 0),
+      customerCount: parseInt(saleData.customerCount || 1),
+      items: saleData.items || [],
+      notes: saleData.notes || "",
+      createdAt: new Date().toISOString(),
     };
-    
-    // Only add receipt_url if it exists, to prevent crashes if the user hasn't updated their DB schema
-    if (expense.receiptUrl) {
-      payload.receipt_url = expense.receiptUrl;
+
+    setSales((prev) => [newSale, ...prev]);
+
+    // Try background Supabase insert if logged in
+    if (user) {
+      try {
+        await supabase.from("sales").insert({
+          user_id: user.id,
+          date: newSale.date,
+          total_amount: newSale.totalAmount,
+          cash_amount: newSale.cashAmount,
+          upi_amount: newSale.upiAmount,
+          card_amount: newSale.cardAmount,
+          customer_count: newSale.customerCount,
+          items: newSale.items,
+          notes: newSale.notes,
+        });
+      } catch (err) {
+        console.warn("Supabase sale insert silent fallback:", err);
+      }
     }
 
-    const { data, error } = await supabase.from("expenses").insert(payload).select().single();
+    return newSale;
+  }, [user]);
 
-    if (error) {
-      console.error("Error adding expense:", error);
-      alert("Database Error: " + error.message);
-      return null;
+  const deleteSale = useCallback(async (id) => {
+    setSales((prev) => prev.filter((s) => s.id !== id));
+    if (user) {
+      try { await supabase.from("sales").delete().eq("id", id); } catch (e) {}
+    }
+  }, [user]);
+
+  /* ======== EXPENSES & BILL MANAGEMENT ======== */
+  const addExpense = useCallback(async (expData) => {
+    const newExpense = {
+      id: expData.id || `exp-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      title: expData.title || expData.description || "Stall Expense",
+      amount: parseFloat(expData.amount || 0),
+      categoryId: expData.categoryId || "cat-miscellaneous",
+      date: expData.date || new Date().toISOString().split("T")[0],
+      paymentMethod: expData.paymentMethod || "Cash",
+      vendorName: expData.vendorName || "",
+      receiptImage: expData.receiptImage || expData.receiptUrl || null,
+      notes: expData.notes || "",
+      createdAt: new Date().toISOString(),
+    };
+
+    setExpenses((prev) => [newExpense, ...prev]);
+
+    if (user) {
+      try {
+        await supabase.from("expenses").insert({
+          user_id: user.id,
+          description: newExpense.title,
+          amount: newExpense.amount,
+          category_id: newExpense.categoryId,
+          date: newExpense.date,
+          receipt_url: newExpense.receiptImage,
+        });
+      } catch (err) {
+        console.warn("Supabase expense insert silent fallback:", err);
+      }
     }
 
-    if (data) {
-      setExpenses((prev) => [mapExpense(data), ...prev]);
-    }
-    return data;
+    return newExpense;
   }, [user]);
 
   const deleteExpense = useCallback(async (id) => {
-    await supabase.from("expenses").delete().eq("id", id);
     setExpenses((prev) => prev.filter((e) => e.id !== id));
-  }, []);
-
-  const updateExpense = useCallback(async (id, updates) => {
-    const dbUpdates = {};
-    if (updates.description !== undefined) dbUpdates.description = updates.description;
-    if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
-    if (updates.categoryId !== undefined) dbUpdates.category_id = updates.categoryId;
-    if (updates.date !== undefined) dbUpdates.date = updates.date;
-    if (updates.receiptUrl !== undefined) dbUpdates.receipt_url = updates.receiptUrl;
-
-    await supabase.from("expenses").update(dbUpdates).eq("id", id);
-    setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...updates } : e)));
-  }, []);
-
-  const clearAllExpenses = useCallback(async () => {
-    if (!user) return;
-    await supabase.from("expenses").delete().eq("user_id", user.id);
-    setExpenses([]);
+    if (user) {
+      try { await supabase.from("expenses").delete().eq("id", id); } catch (e) {}
+    }
   }, [user]);
 
-  /* ======== DEBTS ======== */
-  const addDebt = useCallback(async (debt) => {
-    if (!user) return;
-    const { data, error } = await supabase.from("debts").insert({
-      user_id: user.id,
-      name: debt.name,
-      type: debt.type,
-      principal: debt.principal,
-      remaining_balance: debt.remainingBalance,
-      interest_rate: debt.interestRate,
-      minimum_payment: debt.minimumPayment,
-      due_date: debt.dueDate || null,
-    }).select().single();
-
-    if (!error && data) {
-      setDebts((prev) => [...prev, mapDebt(data)]);
-    }
-    return data;
-  }, [user]);
-
-  const updateDebt = useCallback(async (id, updates) => {
-    const dbUpdates = {};
-    if (updates.name !== undefined) dbUpdates.name = updates.name;
-    if (updates.remainingBalance !== undefined) dbUpdates.remaining_balance = updates.remainingBalance;
-    if (updates.interestRate !== undefined) dbUpdates.interest_rate = updates.interestRate;
-    if (updates.minimumPayment !== undefined) dbUpdates.minimum_payment = updates.minimumPayment;
-    if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
-
-    await supabase.from("debts").update(dbUpdates).eq("id", id);
-    setDebts((prev) => prev.map((d) => (d.id === id ? { ...d, ...updates } : d)));
-  }, []);
-
-  const deleteDebt = useCallback(async (id) => {
-    await supabase.from("debts").delete().eq("id", id);
-    setDebts((prev) => prev.filter((d) => d.id !== id));
-  }, []);
-
-  /* ======== CREDITS ======== */
-  const addCredit = useCallback(async (credit) => {
-    if (!user) return;
-    const { data, error } = await supabase.from("credits").insert({
-      user_id: user.id,
-      person_name: credit.personName,
-      total_amount: credit.totalAmount,
-      received_amount: credit.receivedAmount || 0,
-      expected_date: credit.expectedDate || null,
-      status: credit.status || "pending",
-      notes: credit.notes || "",
-    }).select().single();
-
-    if (!error && data) {
-      setCredits((prev) => [...prev, mapCredit(data)]);
-    }
-    return data;
-  }, [user]);
-
-  const updateCredit = useCallback(async (id, updates) => {
-    const dbUpdates = {};
-    if (updates.personName !== undefined) dbUpdates.person_name = updates.personName;
-    if (updates.totalAmount !== undefined) dbUpdates.total_amount = updates.totalAmount;
-    if (updates.receivedAmount !== undefined) dbUpdates.received_amount = updates.receivedAmount;
-    if (updates.expectedDate !== undefined) dbUpdates.expected_date = updates.expectedDate;
-    if (updates.status !== undefined) dbUpdates.status = updates.status;
-    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
-
-    await supabase.from("credits").update(dbUpdates).eq("id", id);
-    setCredits((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
-  }, []);
-
-  const deleteCredit = useCallback(async (id) => {
-    await supabase.from("credits").delete().eq("id", id);
-    setCredits((prev) => prev.filter((c) => c.id !== id));
-  }, []);
-
-  /* ======== DEBT & CREDIT PAYMENT TRANSACTIONS ======== */
-  const recordDebtPayment = useCallback(async (id, amount, date) => {
-    if (!user) return null;
-    
-    const debt = debts.find((d) => d.id === id);
-    if (!debt) {
-      console.error("Debt not found:", id);
-      return null;
-    }
-    
-    const newRemainingBalance = Math.max(0, debt.remainingBalance - amount);
-    
-    const { data: debtData, error: debtError } = await supabase
-      .from("debts")
-      .update({ remaining_balance: newRemainingBalance })
-      .eq("id", id)
-      .select()
-      .single();
-      
-    if (debtError) {
-      console.error("Error updating debt remaining balance:", debtError);
-      alert("Error updating debt: " + debtError.message);
-      return null;
-    }
-    
-    const payload = {
-      user_id: user.id,
-      description: `Debt Payment: ${debt.name}`,
-      amount: amount,
-      category_id: "cat-12",
-      date: date,
+  /* ======== WASTAGE / SPOILAGE MANAGEMENT ======== */
+  const addWastage = useCallback(async (wData) => {
+    const newWaste = {
+      id: wData.id || `waste-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      date: wData.date || new Date().toISOString().split("T")[0],
+      itemName: wData.itemName || "Spoiled Item",
+      quantity: parseFloat(wData.quantity || 1),
+      unit: wData.unit || "pcs",
+      estimatedCost: parseFloat(wData.estimatedCost || 0),
+      reason: wData.reason || "Spoiled/Expired",
+      notes: wData.notes || "",
+      createdAt: new Date().toISOString(),
     };
-    
-    const { data: expenseData, error: expenseError } = await supabase
-      .from("expenses")
-      .insert(payload)
-      .select()
-      .single();
-      
-    if (expenseError) {
-      console.error("Error logging expense transaction:", expenseError);
-      alert("Error logging expense: " + expenseError.message);
-      return null;
-    }
-    
-    if (debtData) {
-      setDebts((prev) => prev.map((d) => (d.id === id ? mapDebt(debtData) : d)));
-    }
-    if (expenseData) {
-      setExpenses((prev) => [mapExpense(expenseData), ...prev]);
-    }
-    
-    return { debtData, expenseData };
-  }, [user, debts]);
 
-  const recordCreditPayment = useCallback(async (id, amount, date) => {
-    if (!user) return null;
-    
-    const credit = credits.find((c) => c.id === id);
-    if (!credit) {
-      console.error("Credit not found:", id);
-      return null;
-    }
-    
-    const newReceivedAmount = credit.receivedAmount + amount;
-    const newStatus = newReceivedAmount >= credit.totalAmount ? "received" : "partial";
-    
-    const { data: creditData, error: creditError } = await supabase
-      .from("credits")
-      .update({
-        received_amount: newReceivedAmount,
-        status: newStatus,
-      })
-      .eq("id", id)
-      .select()
-      .single();
-      
-    if (creditError) {
-      console.error("Error updating credit:", creditError);
-      alert("Error updating credit: " + creditError.message);
-      return null;
-    }
-    
-    const { data: incomeData, error: incomeError } = await supabase
-      .from("incomes")
-      .insert({
-        user_id: user.id,
-        source: `Credit Received: ${credit.personName}`,
-        amount: amount,
-        date: date,
-        notes: `Received from ${credit.personName}`,
-      })
-      .select()
-      .single();
-      
-    if (incomeError) {
-      console.error("Error logging income transaction:", incomeError);
-      alert("Error logging income: " + incomeError.message);
-      return null;
-    }
-    
-    if (creditData) {
-      setCredits((prev) => prev.map((c) => (c.id === id ? mapCredit(creditData) : c)));
-    }
-    if (incomeData) {
-      setIncomes((prev) => [mapIncome(incomeData), ...prev]);
-    }
-    
-    return { creditData, incomeData };
-  }, [user, credits]);
+    setWastage((prev) => [newWaste, ...prev]);
 
-  /* ======== SUBSCRIPTIONS ======== */
-  const addSubscription = useCallback(async (sub) => {
-    if (!user) return;
-    const { data, error } = await supabase.from("subscriptions").insert({
-      user_id: user.id,
-      name: sub.name,
-      amount: sub.amount,
-      frequency: sub.frequency || "monthly",
-      next_billing_date: sub.nextBillingDate || null,
-      icon: sub.icon || "📦",
-      active: sub.active !== undefined ? sub.active : true,
-    }).select().single();
-
-    if (!error && data) {
-      setSubscriptions((prev) => [...prev, mapSubscription(data)]);
+    if (user) {
+      try {
+        await supabase.from("wastage").insert({
+          user_id: user.id,
+          date: newWaste.date,
+          item_name: newWaste.itemName,
+          quantity: newWaste.quantity,
+          unit: newWaste.unit,
+          estimated_cost: newWaste.estimatedCost,
+          reason: newWaste.reason,
+          notes: newWaste.notes,
+        });
+      } catch (err) {
+        console.warn("Supabase wastage insert silent fallback:", err);
+      }
     }
-    return data;
+
+    return newWaste;
   }, [user]);
 
-  const updateSubscription = useCallback(async (id, updates) => {
-    const dbUpdates = {};
-    if (updates.name !== undefined) dbUpdates.name = updates.name;
-    if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
-    if (updates.active !== undefined) dbUpdates.active = updates.active;
-    if (updates.nextBillingDate !== undefined) dbUpdates.next_billing_date = updates.nextBillingDate;
-
-    await supabase.from("subscriptions").update(dbUpdates).eq("id", id);
-    setSubscriptions((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)));
+  const deleteWastage = useCallback((id) => {
+    setWastage((prev) => prev.filter((w) => w.id !== id));
   }, []);
 
-  const deleteSubscription = useCallback(async (id) => {
-    await supabase.from("subscriptions").delete().eq("id", id);
-    setSubscriptions((prev) => prev.filter((s) => s.id !== id));
+  /* ======== DAY END CASH DRAWER RECONCILIATION ======== */
+  const addClosure = useCallback((cData) => {
+    const newClosure = {
+      id: cData.id || `closure-${Date.now()}`,
+      date: cData.date || new Date().toISOString().split("T")[0],
+      openingCash: parseFloat(cData.openingCash || 0),
+      cashSales: parseFloat(cData.cashSales || 0),
+      cashExpenses: parseFloat(cData.cashExpenses || 0),
+      expectedClosingCash: parseFloat(cData.expectedClosingCash || 0),
+      actualClosingCash: parseFloat(cData.actualClosingCash || 0),
+      discrepancy: parseFloat(cData.discrepancy || 0), // actual - expected
+      notes: cData.notes || "",
+      createdAt: new Date().toISOString(),
+    };
+
+    setClosures((prev) => [newClosure, ...prev.filter(c => c.date !== newClosure.date)]);
+    return newClosure;
   }, []);
 
-  /* ======== BUDGETS ======== */
-  const setBudgetValue = useCallback(async (categoryId, monthlyLimit, month) => {
-    if (!user) return;
-
-    // Upsert: update if exists, insert if not
-    const { data, error } = await supabase.from("budgets").upsert(
-      {
-        user_id: user.id,
-        category_id: categoryId,
-        monthly_limit: monthlyLimit,
-        month,
-      },
-      { onConflict: "user_id,category_id,month" }
-    ).select().single();
-
-    if (!error && data) {
-      setBudgets((prev) => {
-        const exists = prev.find((b) => b.categoryId === categoryId && b.month === month);
-        if (exists) {
-          return prev.map((b) =>
-            b.categoryId === categoryId && b.month === month
-              ? { ...b, monthlyLimit, id: data.id }
-              : b
-          );
-        }
-        return [...prev, mapBudget(data)];
-      });
-    }
-  }, [user]);
-
-  /* ======== INCOMES ======== */
-  const addIncome = useCallback(async (income) => {
-    if (!user) return;
-    const { data, error } = await supabase.from("incomes").insert({
-      user_id: user.id,
-      source: income.source,
-      amount: income.amount,
-      date: income.date,
-      notes: income.notes || "",
-    }).select().single();
-
-    if (error) {
-      console.error("Error adding income:", error);
-      alert("Database Error: You likely need to update your Supabase database schema. " + error.message);
-      return null;
-    }
-
-    if (data) {
-      setIncomes((prev) => [mapIncome(data), ...prev]);
-    }
-    return data;
-  }, [user]);
-
-  const updateIncome = useCallback(async (id, updates) => {
-    const dbUpdates = {};
-    if (updates.source !== undefined) dbUpdates.source = updates.source;
-    if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
-    if (updates.date !== undefined) dbUpdates.date = updates.date;
-    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
-
-    await supabase.from("incomes").update(dbUpdates).eq("id", id);
-    setIncomes((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)));
+  /* ======== VENDOR MANAGEMENT ======== */
+  const addVendor = useCallback((vData) => {
+    const newVendor = {
+      id: vData.id || `vendor-${Date.now()}`,
+      name: vData.name,
+      phone: vData.phone || "",
+      category: vData.category || "Supplies",
+      pendingAmount: parseFloat(vData.pendingAmount || 0),
+      notes: vData.notes || "",
+    };
+    setVendors((prev) => [newVendor, ...prev]);
+    return newVendor;
   }, []);
 
-  const deleteIncome = useCallback(async (id) => {
-    await supabase.from("incomes").delete().eq("id", id);
-    setIncomes((prev) => prev.filter((i) => i.id !== id));
+  const updateVendor = useCallback((id, updates) => {
+    setVendors((prev) => prev.map((v) => (v.id === id ? { ...v, ...updates } : v)));
   }, []);
 
-  /* ======== SAVINGS GOALS ======== */
-  const addSavingsGoal = useCallback(async (goal) => {
-    if (!user) return;
-    const { data, error } = await supabase.from("savings_goals").insert({
-      user_id: user.id,
-      name: goal.name,
-      target_amount: goal.targetAmount,
-      current_amount: goal.currentAmount || 0,
-      target_date: goal.targetDate || null,
-      icon: goal.icon || "🎯",
-      color: goal.color || "#4F6EF7",
-    }).select().single();
-
-    if (error) {
-      console.error("Error adding savings goal:", error);
-      alert("Database Error: You likely need to update your Supabase database schema. " + error.message);
-      return null;
-    }
-
-    if (data) {
-      setSavingsGoals((prev) => [...prev, mapSavingsGoal(data)]);
-    }
-    return data;
-  }, [user]);
-
-  const updateSavingsGoal = useCallback(async (id, updates) => {
-    const dbUpdates = {};
-    if (updates.name !== undefined) dbUpdates.name = updates.name;
-    if (updates.targetAmount !== undefined) dbUpdates.target_amount = updates.targetAmount;
-    if (updates.currentAmount !== undefined) dbUpdates.current_amount = updates.currentAmount;
-    if (updates.targetDate !== undefined) dbUpdates.target_date = updates.targetDate;
-    if (updates.icon !== undefined) dbUpdates.icon = updates.icon;
-    if (updates.color !== undefined) dbUpdates.color = updates.color;
-
-    await supabase.from("savings_goals").update(dbUpdates).eq("id", id);
-    setSavingsGoals((prev) => prev.map((g) => (g.id === id ? { ...g, ...updates } : g)));
+  const deleteVendor = useCallback((id) => {
+    setVendors((prev) => prev.filter((v) => v.id !== id));
   }, []);
 
-  const deleteSavingsGoal = useCallback(async (id) => {
-    await supabase.from("savings_goals").delete().eq("id", id);
-    setSavingsGoals((prev) => prev.filter((g) => g.id !== id));
+  /* ======== SKU / MENU MANAGEMENT ======== */
+  const addSku = useCallback((skuData) => {
+    const newSku = {
+      id: skuData.id || `sku-${Date.now()}`,
+      code: skuData.code || `SKU-${Math.floor(100 + Math.random() * 900)}`,
+      name: skuData.name,
+      category: skuData.category || "General",
+      price: parseFloat(skuData.price || 0),
+      costPrice: parseFloat(skuData.costPrice || 0),
+      stock: parseInt(skuData.stock || 0),
+      unit: skuData.unit || "pc",
+    };
+    setSkus((prev) => [newSku, ...prev]);
+    return newSku;
   }, []);
 
-  /* ======== STORAGE HELPERS ======== */
-  const uploadReceipt = useCallback(async (file) => {
-    if (!user || !file) return null;
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${user.id}_${Date.now()}.${fileExt}`;
-    
-    const { data, error } = await supabase.storage
-      .from("receipts")
-      .upload(fileName, file);
-      
-    if (error) {
-      console.error("Error uploading receipt:", error);
-      return null;
+  const updateSku = useCallback((id, updates) => {
+    setSkus((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)));
+  }, []);
+
+  const deleteSku = useCallback((id) => {
+    setSkus((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
+  /* ======== CLEAR ALL LOCAL DATA ======== */
+  const resetStallData = useCallback(() => {
+    if (confirm("Are you sure you want to reset all stall tracking data to defaults?")) {
+      setSales([]);
+      setExpenses([]);
+      setWastage([]);
+      setClosures([]);
+      setVendors([]);
+      setSkus(DEFAULT_SKUS);
+      localStorage.clear();
+      alert("All data reset successfully.");
     }
-    
-    const { data: publicUrlData } = supabase.storage
-      .from("receipts")
-      .getPublicUrl(fileName);
-      
-    return publicUrlData.publicUrl;
-  }, [user]);
+  }, []);
 
   /* ======== HELPERS ======== */
   const getCategoryById = useCallback(
-    (id) => categories.find((c) => c.id === id),
+    (id) => categories.find((c) => c.id === id) || { name: "Miscellaneous", icon: "🌀", color: "#64748b" },
     [categories]
   );
 
-  const getExpensesByMonth = useCallback(
-    (year, month) => {
-      const prefix = `${year}-${String(month).padStart(2, "0")}`;
-      return expenses.filter((e) => e.date.startsWith(prefix));
-    },
-    [expenses]
-  );
-
-  const getTotalByCategory = useCallback(
-    (categoryId, year, month) => {
-      const monthExpenses = getExpensesByMonth(year, month);
-      return monthExpenses
-        .filter((e) => e.categoryId === categoryId)
-        .reduce((sum, e) => sum + e.amount, 0);
-    },
-    [getExpensesByMonth]
-  );
-
   const value = {
+    sales,
     expenses,
-    debts,
-    credits,
-    subscriptions,
-    budgets,
-    incomes,
-    savingsGoals,
+    wastage,
+    closures,
+    vendors,
+    skus,
     categories,
     dataLoading,
+    addSale,
+    deleteSale,
     addExpense,
     deleteExpense,
-    updateExpense,
-    clearAllExpenses,
-    addDebt,
-    updateDebt,
-    deleteDebt,
-    addCredit,
-    updateCredit,
-    deleteCredit,
-    recordDebtPayment,
-    recordCreditPayment,
-    addSubscription,
-    updateSubscription,
-    deleteSubscription,
-    setBudget: setBudgetValue,
-    addIncome,
-    updateIncome,
-    deleteIncome,
-    addSavingsGoal,
-    updateSavingsGoal,
-    deleteSavingsGoal,
-    uploadReceipt,
+    addWastage,
+    deleteWastage,
+    addClosure,
+    addVendor,
+    updateVendor,
+    deleteVendor,
+    addSku,
+    updateSku,
+    deleteSku,
+    resetStallData,
     getCategoryById,
-    getExpensesByMonth,
-    getTotalByCategory,
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

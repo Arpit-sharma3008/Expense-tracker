@@ -16,6 +16,12 @@
   flex-wrap: wrap;
 }
 
+.filterGroup {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
 .monthSelect {
   display: flex;
   flex-direction: column;
@@ -43,6 +49,37 @@
 }
 
 .monthSelect input[type="month"]:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-subtle);
+}
+
+.categorySelect {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.categorySelect label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.selectInput {
+  min-width: 200px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.selectInput:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-subtle);
 }
@@ -89,11 +126,21 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
-  transition: background var(--transition-fast);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  border: 1px solid transparent;
+  user-select: none;
 }
 
 .catRow:hover {
   background: var(--bg-tertiary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.activeCatRow {
+  background: var(--color-primary-subtle) !important;
+  border-color: var(--color-primary) !important;
 }
 
 .catIcon { font-size: 1rem; flex-shrink: 0; }
@@ -160,9 +207,22 @@
   font-style: italic;
 }
 
+.noDataText {
+  text-align: center;
+  padding: var(--space-6) var(--space-4);
+  font-size: var(--font-size-md);
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
 @media (max-width: 768px) {
   .page { padding: var(--space-4); }
   .controls { flex-direction: column; align-items: stretch; }
+  .filterGroup { flex-direction: column; align-items: stretch; gap: var(--space-3); }
+  .monthSelect input[type="month"],
+  .selectInput {
+    min-width: 100%;
+  }
   .catSummary { grid-template-columns: 1fr; }
   .tableWrap { padding: var(--space-3); }
 }

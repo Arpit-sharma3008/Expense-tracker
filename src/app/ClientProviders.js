@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { DataProvider } from "@/context/DataContext";
@@ -8,10 +8,10 @@ import AppShell from "@/components/AppShell/AppShell";
 import LoginPage from "./login/page";
 
 function AuthGate({ children }) {
-  const { user, loading } = useAuth();
+  const { loading, role, loginAsManager } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
 
-  // Show loading spinner while checking auth
   if (loading) {
     return (
       <div style={{
@@ -21,20 +21,63 @@ function AuthGate({ children }) {
         height: "100vh",
         gap: "12px",
         color: "var(--text-tertiary)",
-        fontSize: "var(--font-size-sm)",
+        fontSize: "14px",
       }}>
         <span className="spinner" />
-        Loading SpendWise...
+        Loading StallMaster...
       </div>
     );
   }
 
-  // Not logged in → show login page
-  if (!user) {
+  // Not logged in → render Login Screen
+  if (!role) {
     return <LoginPage />;
   }
 
-  // Logged in → show app
+  // RESTRICTED EMPLOYEE ROUTE GUARD
+  const isManagerRoute = pathname !== "/sales";
+  if (role === "employee" && isManagerRoute) {
+    const handleUnlock = () => {
+      const pin = prompt("Enter Manager Master PIN to access this page (Default: 1234):");
+      if (!pin) return;
+      const res = loginAsManager(pin);
+      if (res.success) {
+        alert("✅ Manager Access Granted!");
+      } else {
+        alert(res.error);
+      }
+    };
+
+    return (
+      <DataProvider>
+        <AppShell>
+          <div style={{ padding: "40px", maxWidth: "500px", margin: "60px auto", textAlign: "center" }} className="card">
+            <div style={{ fontSize: "3rem", marginBottom: "12px" }}>🔒</div>
+            <h2 style={{ margin: 0, fontSize: "1.4rem" }}>Restricted Section</h2>
+            <p style={{ color: "var(--text-tertiary)", fontSize: "0.9rem", margin: "10px 0 20px 0" }}>
+              Employees do not have permission to view accounts, expenses, vendors, wastage logs, or reports.
+            </p>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+              <button
+                onClick={() => router.push("/sales")}
+                className="btn btn-primary"
+                style={{ padding: "10px 20px", borderRadius: "10px", fontWeight: "bold" }}
+              >
+                Go to POS Terminal
+              </button>
+              <button
+                onClick={handleUnlock}
+                style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-color)", color: "var(--text-primary)", padding: "10px 20px", borderRadius: "10px", fontWeight: "bold", cursor: "pointer" }}
+              >
+                Unlock with Manager PIN
+              </button>
+            </div>
+          </div>
+        </AppShell>
+      </DataProvider>
+    );
+  }
+
   return (
     <DataProvider>
       <AppShell>{children}</AppShell>

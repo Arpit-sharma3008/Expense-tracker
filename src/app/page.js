@@ -1,143 +1,118 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Header from "@/components/Header/Header";
 import { useData } from "@/context/DataContext";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  AreaChart, Area,
+  AreaChart, Area, Legend
 } from "recharts";
+import Link from "next/link";
 import styles from "./page.module.css";
 
-export default function Dashboard() {
-  const { expenses, debts, credits, subscriptions, incomes, categories, getCategoryById, addExpense } = useData();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+export default function StallDashboard() {
+  const { sales, expenses, wastage, closures, getCategoryById } = useData();
 
   const now = new Date();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
-  const monthPrefix = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
-  const lastMonthPrefix = currentMonth === 1
-    ? `${currentYear - 1}-12`
-    : `${currentYear}-${String(currentMonth - 1).padStart(2, "0")}`;
+  const todayStr = now.toISOString().split("T")[0];
 
-  /* ---- Stats ---- */
+  const formatCurrency = (v) => `₹${Math.round(v).toLocaleString("en-IN")}`;
+
+  /* ---- Calculated Financial Stats ---- */
   const stats = useMemo(() => {
-    const thisMonth = expenses.filter((e) => e.date.startsWith(monthPrefix));
-    const lastMonth = expenses.filter((e) => e.date.startsWith(lastMonthPrefix));
-    const thisTotal = thisMonth.reduce((s, e) => s + e.amount, 0);
-    const lastTotal = lastMonth.reduce((s, e) => s + e.amount, 0);
-    const change = lastTotal > 0 ? ((thisTotal - lastTotal) / lastTotal) * 100 : 0;
+    // Today's stats
+    const todaySales = sales.filter((s) => s.date === todayStr);
+    const todayExpenses = expenses.filter((e) => e.date === todayStr);
+    const todayWastage = wastage.filter((w) => w.date === todayStr);
 
-    const thisMonthIncomes = incomes.filter((i) => i.date.startsWith(monthPrefix));
-    const thisMonthTotalIncome = thisMonthIncomes.reduce((s, i) => s + i.amount, 0);
-    const cashFlow = thisMonthTotalIncome - thisTotal;
-    const savingsRate = thisMonthTotalIncome > 0 ? (cashFlow / thisMonthTotalIncome) * 100 : 0;
+    const todayRev = todaySales.reduce((s, x) => s + x.totalAmount, 0);
+    const todayExp = todayExpenses.reduce((s, x) => s + x.amount, 0);
+    const todayWaste = todayWastage.reduce((s, x) => s + x.estimatedCost, 0);
+    const todayNet = todayRev - todayExp - todayWaste;
 
-    const totalDebt = debts.reduce((s, d) => s + d.remainingBalance, 0);
-    const pendingCredits = credits.reduce((s, c) => s + (c.totalAmount - c.receivedAmount), 0);
-    const netPosition = pendingCredits - totalDebt;
+    // Total ऑल-time / Month Stats
+    const totalRev = sales.reduce((s, x) => s + x.totalAmount, 0);
+    const totalExp = expenses.reduce((s, x) => s + x.amount, 0);
+    const totalWaste = wastage.reduce((s, x) => s + x.estimatedCost, 0);
+    const netProfit = totalRev - totalExp - totalWaste;
+    const margin = totalRev > 0 ? (netProfit / totalRev) * 100 : 0;
 
-    const activeSubs = subscriptions.filter((s) => s.active);
-    const monthlySubCost = activeSubs.reduce((s, sub) => s + sub.amount, 0);
+    // Payment Mode Split
+    const cashTotal = sales.reduce((s, x) => s + (x.cashAmount || 0), 0);
+    const upiTotal = sales.reduce((s, x) => s + (x.upiAmount || 0), 0);
+    const cardTotal = sales.reduce((s, x) => s + (x.cardAmount || 0), 0);
 
-    const totalAllTimeIncome = incomes.reduce((s, i) => s + i.amount, 0);
-    const totalAllTimeExpenses = expenses.reduce((s, e) => s + e.amount, 0);
-    const inHandAmount = totalAllTimeIncome - totalAllTimeExpenses;
-
-    return { 
-      thisTotal, lastTotal, change, 
-      totalDebt, pendingCredits, netPosition, 
-      monthlySubCost, txCount: thisMonth.length,
-      thisMonthTotalIncome, cashFlow, savingsRate,
-      inHandAmount
+    return {
+      todayRev, todayExp, todayWaste, todayNet,
+      totalRev, totalExp, totalWaste, netProfit, margin,
+      cashTotal, upiTotal, cardTotal,
     };
-  }, [expenses, debts, credits, subscriptions, incomes, monthPrefix, lastMonthPrefix]);
+  }, [sales, expenses, wastage, todayStr]);
 
-  /* ---- Category Breakdown (Pie) ---- */
+  /* ---- Payment Mode Pie Data ---- */
+  const paymentData = useMemo(() => {
+    return [
+      { name: "UPI / QR", value: stats.upiTotal, color: "#10b981" },
+      { name: "Cash", value: stats.cashTotal, color: "#f59e0b" },
+      { name: "Card", value: stats.cardTotal, color: "#3b82f6" },
+    ].filter(item => item.value > 0);
+  }, [stats]);
+
+  /* ---- Daily Financial Trend (Last 14 Days) ---- */
+  const dailyTrend = useMemo(() => {
+    const days = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateKey = d.toISOString().split("T")[0];
+      const dayName = `${d.getDate()}/${d.getMonth() + 1}`;
+
+      const dayRev = sales.filter(s => s.date === dateKey).reduce((s, x) => s + x.totalAmount, 0);
+      const dayExp = expenses.filter(e => e.date === dateKey).reduce((s, x) => s + x.amount, 0);
+      const dayWaste = wastage.filter(w => w.date === dateKey).reduce((s, x) => s + x.estimatedCost, 0);
+      const dayNet = dayRev - dayExp - dayWaste;
+
+      days.push({
+        date: dayName,
+        Revenue: Math.round(dayRev),
+        Expenses: Math.round(dayExp),
+        Wastage: Math.round(dayWaste),
+        NetProfit: Math.round(dayNet),
+      });
+    }
+    return days;
+  }, [sales, expenses, wastage]);
+
+  /* ---- Category Expense Breakdown ---- */
   const categoryData = useMemo(() => {
-    const thisMonth = expenses.filter((e) => e.date.startsWith(monthPrefix));
     const map = {};
-    thisMonth.forEach((e) => {
+    expenses.forEach((e) => {
       map[e.categoryId] = (map[e.categoryId] || 0) + e.amount;
     });
     return Object.entries(map)
       .map(([id, total]) => {
         const cat = getCategoryById(id);
-        return { name: cat?.name || "Other", value: Math.round(total), color: cat?.color || "#8e95a9", icon: cat?.icon || "📦" };
+        return { name: cat.name, value: Math.round(total), color: cat.color, icon: cat.icon };
       })
       .sort((a, b) => b.value - a.value);
-  }, [expenses, monthPrefix, getCategoryById]);
+  }, [expenses, getCategoryById]);
 
-  /* ---- Daily Spend Trend (Area) ---- */
-  const dailyTrend = useMemo(() => {
-    const days = [];
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().split("T")[0];
-      const total = expenses
-        .filter((e) => e.date === key)
-        .reduce((s, e) => s + e.amount, 0);
-      days.push({ date: `${d.getDate()}/${d.getMonth() + 1}`, amount: Math.round(total) });
-    }
-    return days;
-  }, [expenses]);
-
-  /* ---- Weekly Bar ---- */
-  const weeklyData = useMemo(() => {
-    const weekLabels = ["This Week", "Last Week", "2 Weeks Ago", "3 Weeks Ago"];
-    return weekLabels.map((label, i) => {
-      const start = new Date(now);
-      start.setDate(start.getDate() - (i + 1) * 7);
-      const end = new Date(now);
-      end.setDate(end.getDate() - i * 7);
-      const total = expenses
-        .filter((e) => {
-          const d = new Date(e.date);
-          return d >= start && d < end;
-        })
-        .reduce((s, e) => s + e.amount, 0);
-      return { week: label, amount: Math.round(total) };
-    }).reverse();
-  }, [expenses]);
-
-  /* ---- Recent Expenses ---- */
-  const recentExpenses = expenses.slice(0, 8);
-
-  const formatCurrency = (v) => `₹${v.toLocaleString("en-IN")}`;
-
-  /* ---- Quick Add State ---- */
-  const [qaAmount, setQaAmount] = useState("");
-  const [qaDesc, setQaDesc] = useState("");
-  const [qaAdding, setQaAdding] = useState(false);
-
-  const handleQuickAdd = async (e) => {
-    e.preventDefault();
-    if (!qaAmount || !qaDesc) return;
-    setQaAdding(true);
-    
-    // Quick Add defaults to "Other" or finding a category based on words if we wanted to be smart
-    const defaultCat = categories.find(c => c.name === "Other")?.id || categories[0].id;
-    
-    await addExpense({
-      description: qaDesc,
-      amount: parseFloat(qaAmount),
-      categoryId: defaultCat,
-      date: new Date().toISOString().split("T")[0],
-    });
-    
-    setQaAmount("");
-    setQaDesc("");
-    setQaAdding(false);
-  };
+  // Latest activity combined
+  const recentActivities = useMemo(() => {
+    const combined = [
+      ...sales.map(s => ({ type: "sale", title: `Sales Entry (${s.items?.length || 'Quick'} items)`, amount: s.totalAmount, date: s.date, time: s.time, icon: "🛒", color: "#10b981" })),
+      ...expenses.map(e => ({ type: "expense", title: e.title, amount: e.amount, date: e.date, time: "Bill", icon: "🧾", color: "#ef4444" })),
+      ...wastage.map(w => ({ type: "wastage", title: `Wastage: ${w.itemName}`, amount: w.estimatedCost, date: w.date, time: "Waste", icon: "🗑️", color: "#f59e0b" })),
+    ];
+    return combined.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 7);
+  }, [sales, expenses, wastage]);
 
   return (
     <>
       <Header
-        title="Dashboard"
-        subtitle={new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+        title="Stall Overview & P&L"
+        subtitle={now.toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
         onMenuClick={() => {
           const event = new CustomEvent("toggle-sidebar");
           window.dispatchEvent(event);
@@ -145,193 +120,198 @@ export default function Dashboard() {
       />
 
       <div className={styles.page}>
+        {/* Quick Shortcut Buttons */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginBottom: "20px" }}>
+          <Link href="/sales" className="btn btn-primary" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "12px 16px", borderRadius: "12px", textDecoration: "none", fontWeight: 600 }}>
+            <span style={{ fontSize: "1.2rem" }}>🛒</span> Record Sales POS
+          </Link>
+          <Link href="/expenses" className="btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "12px 16px", borderRadius: "12px", background: "var(--bg-elevated)", border: "1px solid var(--border-color)", textDecoration: "none", fontWeight: 600 }}>
+            <span style={{ fontSize: "1.2rem" }}>🧾</span> Add Expense & Bill
+          </Link>
+          <Link href="/wastage" className="btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "12px 16px", borderRadius: "12px", background: "var(--bg-elevated)", border: "1px solid var(--border-color)", textDecoration: "none", fontWeight: 600 }}>
+            <span style={{ fontSize: "1.2rem" }}>🗑️</span> Log Wastage
+          </Link>
+          <Link href="/closure" className="btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "12px 16px", borderRadius: "12px", background: "var(--bg-elevated)", border: "1px solid var(--border-color)", textDecoration: "none", fontWeight: 600 }}>
+            <span style={{ fontSize: "1.2rem" }}>💵</span> Day End Cash Closure
+          </Link>
+        </div>
+
         {/* ---- Stat Cards ---- */}
         <div className={styles.statsGrid}>
           <div className={`${styles.statCard} ${styles.statPrimary}`}>
-            <div className={styles.statIcon}>💰</div>
-            <div className={styles.statContent}>
-              <span className={styles.statLabel}>In Hand Balance</span>
-              <span className={styles.statValue}>{formatCurrency(stats.inHandAmount)}</span>
-              <span className={styles.statMeta} style={{ color: "rgba(255, 255, 255, 0.85)" }}>Actual Cash Available</span>
-            </div>
-          </div>
-
-          <div className={styles.statCard}>
-            <div className={styles.statIcon}>💸</div>
-            <div className={styles.statContent}>
-              <span className={styles.statLabel}>This Month Spend</span>
-              <span className={styles.statValue}>{formatCurrency(stats.thisTotal)}</span>
-              <span className={`${styles.statChange} ${stats.change <= 0 ? styles.positive : styles.negative}`}>
-                {stats.change <= 0 ? "↓" : "↑"} {Math.abs(stats.change).toFixed(1)}% vs last month
-              </span>
-            </div>
-          </div>
-
-          <div className={styles.statCard}>
             <div className={styles.statIcon}>📈</div>
             <div className={styles.statContent}>
-              <span className={styles.statLabel}>Cash Flow</span>
-              <span className={styles.statValue}>{formatCurrency(stats.cashFlow)}</span>
-              <span className={styles.statMeta}>{stats.savingsRate.toFixed(1)}% savings rate</span>
-            </div>
-          </div>
-
-          <div className={styles.statCard}>
-            <div className={styles.statIcon}>🏦</div>
-            <div className={styles.statContent}>
-              <span className={styles.statLabel}>Net Position</span>
-              <span className={styles.statValue}>{formatCurrency(Math.abs(stats.netPosition))}</span>
-              <span className={styles.statMeta}>
-                {stats.netPosition >= 0 ? "Surplus" : "Deficit"} · {debts.length} debts, {credits.length} credits
+              <span className={styles.statLabel}>Net Profit</span>
+              <span className={styles.statValue}>{formatCurrency(stats.netProfit)}</span>
+              <span className={styles.statMeta} style={{ color: "rgba(255, 255, 255, 0.9)" }}>
+                Margin: {stats.margin.toFixed(1)}% · Today: {formatCurrency(stats.todayNet)}
               </span>
             </div>
           </div>
 
           <div className={styles.statCard}>
-            <div className={styles.statIcon}>🔁</div>
+            <div className={styles.statIcon}>💰</div>
             <div className={styles.statContent}>
-              <span className={styles.statLabel}>Subscriptions</span>
-              <span className={styles.statValue}>{formatCurrency(stats.monthlySubCost)}</span>
-              <span className={styles.statMeta}>{subscriptions.filter((s) => s.active).length} active</span>
+              <span className={styles.statLabel}>Total Sales Revenue</span>
+              <span className={styles.statValue}>{formatCurrency(stats.totalRev)}</span>
+              <span className={styles.statMeta} style={{ color: "#10b981", fontWeight: 600 }}>
+                Today: {formatCurrency(stats.todayRev)}
+              </span>
+            </div>
+          </div>
+
+          <div className={styles.statCard}>
+            <div className={styles.statIcon}>🧾</div>
+            <div className={styles.statContent}>
+              <span className={styles.statLabel}>Total Stall Expenses</span>
+              <span className={styles.statValue}>{formatCurrency(stats.totalExp)}</span>
+              <span className={styles.statMeta} style={{ color: "#ef4444" }}>
+                Today: {formatCurrency(stats.todayExp)}
+              </span>
+            </div>
+          </div>
+
+          <div className={styles.statCard}>
+            <div className={styles.statIcon}>🗑️</div>
+            <div className={styles.statContent}>
+              <span className={styles.statLabel}>Wastage / Spoilage Loss</span>
+              <span className={styles.statValue}>{formatCurrency(stats.totalWaste)}</span>
+              <span className={styles.statMeta} style={{ color: "#f59e0b" }}>
+                Today: {formatCurrency(stats.todayWaste)}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* ---- Quick Add Widget ---- */}
-        <form className={styles.quickAddWidget} onSubmit={handleQuickAdd}>
-          <div className={styles.qaHeader}>⚡ Quick Add Expense</div>
-          <div className={styles.qaInputs}>
-            <input 
-              type="number" 
-              placeholder="₹ Amount" 
-              value={qaAmount} 
-              onChange={e => setQaAmount(e.target.value)}
-              required 
-              min="1"
-            />
-            <input 
-              type="text" 
-              placeholder="What did you buy? (e.g., Coffee, Swiggy)" 
-              value={qaDesc} 
-              onChange={e => setQaDesc(e.target.value)}
-              required 
-            />
-            <button type="submit" disabled={qaAdding} className="btn btn-primary">
-              {qaAdding ? "..." : "Add"}
-            </button>
-          </div>
-        </form>
-
         {/* ---- Charts Row ---- */}
         <div className={styles.chartsRow}>
-          {/* Daily Trend */}
+          {/* Daily Trend Chart */}
           <div className={`card ${styles.chartCard} ${styles.chartWide}`}>
             <div className={styles.chartHeader}>
-              <h3>Spending Trend</h3>
-              <span className={styles.chartSubtitle}>Last 30 days</span>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "1.1rem" }}>Financial Trend (14 Days)</h3>
+                <span className={styles.chartSubtitle}>Revenue vs Expenses vs Wastage</span>
+              </div>
             </div>
             <div className={styles.chartBody}>
-              <ResponsiveContainer width="100%" height={240}>
+              <ResponsiveContainer width="100%" height={260}>
                 <AreaChart data={dailyTrend}>
                   <defs>
-                    <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
+                    <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#ef4444" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: "var(--text-tertiary)" }} axisLine={false} tickLine={false} interval={4} />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: "var(--text-tertiary)" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: "var(--text-tertiary)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${v}`} />
                   <Tooltip
                     contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border-color)", borderRadius: 10, fontSize: 13 }}
-                    formatter={(v) => [`₹${v.toLocaleString("en-IN")}`, "Spent"]}
+                    formatter={(v) => [`₹${v.toLocaleString("en-IN")}`, ""]}
                   />
-                  <Area type="monotone" dataKey="amount" stroke="var(--color-primary)" strokeWidth={2.5} fill="url(#areaGradient)" />
+                  <Legend />
+                  <Area type="monotone" dataKey="Revenue" stroke="#10b981" strokeWidth={2.5} fill="url(#revGrad)" />
+                  <Area type="monotone" dataKey="Expenses" stroke="#ef4444" strokeWidth={2} fill="url(#expGrad)" />
+                  <Area type="monotone" dataKey="Wastage" stroke="#f59e0b" strokeWidth={2} fill="none" strokeDasharray="4 4" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Category Pie */}
+          {/* Payment Method Pie */}
           <div className={`card ${styles.chartCard}`}>
             <div className={styles.chartHeader}>
-              <h3>By Category</h3>
-              <span className={styles.chartSubtitle}>This month</span>
+              <h3 style={{ margin: 0, fontSize: "1.1rem" }}>Sales Payment Modes</h3>
+              <span className={styles.chartSubtitle}>UPI vs Cash vs Card</span>
             </div>
-            <div className={styles.chartBody} style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
-              <ResponsiveContainer width="50%" height={200}>
-                <PieChart>
-                  <Pie data={categoryData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
-                    {categoryData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
+            <div className={styles.chartBody} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              {paymentData.length > 0 ? (
+                <>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <PieChart>
+                      <Pie data={paymentData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={4} dataKey="value">
+                        {paymentData.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border-color)", borderRadius: 10, fontSize: 13 }}
+                        formatter={(v) => [`₹${v.toLocaleString("en-IN")}`, ""]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center", marginTop: "10px" }}>
+                    {paymentData.map(p => (
+                      <div key={p.name} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.85rem" }}>
+                        <span style={{ width: 10, height: 10, borderRadius: "50%", background: p.color }} />
+                        <span>{p.name}: {formatCurrency(p.value)}</span>
+                      </div>
                     ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border-color)", borderRadius: 10, fontSize: 13 }}
-                    formatter={(v) => [`₹${v.toLocaleString("en-IN")}`, ""]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className={styles.pieLegend}>
-                {categoryData.slice(0, 5).map((entry) => (
-                  <div key={entry.name} className={styles.legendItem}>
-                    <span className={styles.legendDot} style={{ background: entry.color }} />
-                    <span className={styles.legendLabel}>{entry.icon} {entry.name}</span>
-                    <span className={styles.legendValue}>{formatCurrency(entry.value)}</span>
                   </div>
-                ))}
-              </div>
+                </>
+              ) : (
+                <div style={{ padding: "40px", color: "var(--text-tertiary)", textAlign: "center" }}>No sales logged yet</div>
+              )}
             </div>
           </div>
         </div>
 
         {/* ---- Bottom Row ---- */}
         <div className={styles.bottomRow}>
-          {/* Weekly Comparison */}
+          {/* Expense Category Breakdown */}
           <div className={`card ${styles.chartCard}`}>
             <div className={styles.chartHeader}>
-              <h3>Weekly Comparison</h3>
-              <span className={styles.chartSubtitle}>Last 4 weeks</span>
+              <h3 style={{ margin: 0, fontSize: "1.1rem" }}>Expense Breakdown</h3>
+              <span className={styles.chartSubtitle}>By Stall Category</span>
             </div>
             <div className={styles.chartBody}>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={weeklyData} barSize={32}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" vertical={false} />
-                  <XAxis dataKey="week" tick={{ fontSize: 11, fill: "var(--text-tertiary)" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "var(--text-tertiary)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${v}`} />
-                  <Tooltip
-                    contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border-color)", borderRadius: 10, fontSize: 13 }}
-                    formatter={(v) => [`₹${v.toLocaleString("en-IN")}`, "Spent"]}
-                    cursor={{ fill: "var(--color-primary-subtle)" }}
-                  />
-                  <Bar dataKey="amount" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {categoryData.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {categoryData.map((cat) => (
+                    <div key={cat.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ fontSize: "1.2rem" }}>{cat.icon}</span>
+                        <span style={{ fontWeight: 500, fontSize: "0.9rem" }}>{cat.name}</span>
+                      </div>
+                      <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{formatCurrency(cat.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ padding: "30px", color: "var(--text-tertiary)", textAlign: "center" }}>No expenses logged yet</div>
+              )}
             </div>
           </div>
 
-          {/* Recent Transactions */}
+          {/* Recent Operations Log */}
           <div className={`card ${styles.chartCard}`}>
             <div className={styles.chartHeader}>
-              <h3>Recent Expenses</h3>
-              <a href="/expenses" className={styles.viewAll}>View all →</a>
+              <h3 style={{ margin: 0, fontSize: "1.1rem" }}>Recent Stall Logs</h3>
+              <span className={styles.chartSubtitle}>Latest 7 Transactions</span>
             </div>
             <div className={styles.txList}>
-              {recentExpenses.map((exp) => {
-                const cat = getCategoryById(exp.categoryId);
-                return (
-                  <div key={exp.id} className={styles.txItem}>
-                    <div className={styles.txIcon} style={{ background: cat?.color + "18" }}>
-                      {cat?.icon || "📦"}
+              {recentActivities.length > 0 ? (
+                recentActivities.map((act, idx) => (
+                  <div key={idx} className={styles.txItem}>
+                    <div className={styles.txIcon} style={{ background: act.color + "18" }}>
+                      {act.icon}
                     </div>
                     <div className={styles.txInfo}>
-                      <span className={styles.txName}>{exp.description}</span>
-                      <span className={styles.txCat}>{cat?.name} · {new Date(exp.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
+                      <span className={styles.txName}>{act.title}</span>
+                      <span className={styles.txCat}>{act.date} · {act.time}</span>
                     </div>
-                    <span className={styles.txAmount}>-{formatCurrency(exp.amount)}</span>
+                    <span className={styles.txAmount} style={{ color: act.type === "sale" ? "#10b981" : act.color }}>
+                      {act.type === "sale" ? "+" : "-"}{formatCurrency(act.amount)}
+                    </span>
                   </div>
-                );
-              })}
+                ))
+              ) : (
+                <div style={{ padding: "30px", color: "var(--text-tertiary)", textAlign: "center" }}>No recent operations recorded</div>
+              )}
             </div>
           </div>
         </div>
