@@ -6,7 +6,18 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 
 export default function StaffPage() {
-  const { role, managerPin, staffList, addStaff, deleteStaff, updateManagerPin, setRole } = useAuth();
+  const {
+    role,
+    managerPin,
+    staffList,
+    addStaff,
+    deleteStaff,
+    updateManagerPin,
+    setRole,
+    syncFromCloud,
+    exportConfigCode,
+    importConfigCode,
+  } = useAuth();
   const router = useRouter();
 
   // New Staff Form State
@@ -146,6 +157,55 @@ export default function StaffPage() {
                   Update
                 </button>
               </form>
+            </div>
+
+            {/* SYNC ACCOUNTS & PINS (PC <-> PHONE) */}
+            <div className="card" style={{ padding: "24px", borderRadius: "16px" }}>
+              <h3 style={{ marginTop: 0, marginBottom: "6px", fontSize: "1.1rem" }}>📱 Sync PC & Phone Accounts</h3>
+              <p style={{ fontSize: "0.8rem", color: "var(--text-tertiary)", marginTop: 0, marginBottom: "14px" }}>
+                Sync staff accounts & Manager PIN across all devices via Supabase Cloud or a 1-click sync code.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await syncFromCloud();
+                    alert("✅ Cloud Sync Complete! Fetched latest staff accounts and PINs.");
+                  }}
+                  style={{ background: "var(--color-primary)", color: "#fff", border: "none", padding: "10px", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}
+                >
+                  ☁️ Pull Latest from Cloud
+                </button>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const code = exportConfigCode();
+                      navigator.clipboard.writeText(code);
+                      alert("📋 Sync Code copied to clipboard! Paste this code on your phone to transfer accounts instantly.");
+                    }}
+                    style={{ flex: 1, background: "var(--bg-elevated)", border: "1px solid var(--border-color)", color: "var(--text-primary)", padding: "10px", borderRadius: "8px", fontWeight: "bold", cursor: "pointer", fontSize: "0.8rem" }}
+                  >
+                    📋 Copy Sync Code
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const code = prompt("Paste the Sync Code copied from your PC:");
+                      if (!code) return;
+                      const res = importConfigCode(code);
+                      if (res.success) {
+                        alert("✅ Staff accounts and Manager PIN synced successfully on this device!");
+                      } else {
+                        alert(res.error);
+                      }
+                    }}
+                    style={{ flex: 1, background: "var(--bg-elevated)", border: "1px solid var(--border-color)", color: "var(--text-primary)", padding: "10px", borderRadius: "8px", fontWeight: "bold", cursor: "pointer", fontSize: "0.8rem" }}
+                  >
+                    📥 Import Sync Code
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 

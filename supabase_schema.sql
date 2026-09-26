@@ -156,3 +156,15 @@ CREATE POLICY "Anyone can view receipts" ON storage.objects FOR SELECT USING (bu
 CREATE POLICY "Users can upload receipts" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'receipts' AND auth.uid() = owner);
 CREATE POLICY "Users can update own receipts" ON storage.objects FOR UPDATE USING (bucket_id = 'receipts' AND auth.uid() = owner);
 CREATE POLICY "Users can delete own receipts" ON storage.objects FOR DELETE USING (bucket_id = 'receipts' AND auth.uid() = owner);
+
+-- 13. STALL CONFIGURATION & STAFF SYNC TABLE
+CREATE TABLE IF NOT EXISTS stall_config (
+  id TEXT PRIMARY KEY DEFAULT 'default_stall',
+  manager_pin TEXT NOT NULL DEFAULT '1234',
+  staff_list JSONB NOT NULL DEFAULT '[]'::jsonb,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE stall_config ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public select on stall_config" ON stall_config FOR SELECT USING (true);
+CREATE POLICY "Allow public all on stall_config" ON stall_config FOR ALL USING (true);

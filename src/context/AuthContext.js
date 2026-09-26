@@ -20,9 +20,46 @@ export function AuthProvider({ children }) {
   const [managerPin, setManagerPin] = useState("1234");
   const [staffList, setStaffList] = useState(DEFAULT_STAFF);
 
+  // Sync staff & manager pin with Supabase Cloud
+  const syncFromCloud = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("stall_config")
+        .select("*")
+        .eq("id", "default_stall")
+        .maybeSingle();
+
+      if (data) {
+        if (data.manager_pin) {
+          setManagerPin(data.manager_pin);
+          if (typeof window !== "undefined") localStorage.setItem("stall_manager_pin", data.manager_pin);
+        }
+        if (data.staff_list && Array.isArray(data.staff_list)) {
+          setStaffList(data.staff_list);
+          if (typeof window !== "undefined") localStorage.setItem("stall_staff_list", JSON.stringify(data.staff_list));
+        }
+      }
+    } catch (e) {
+      console.warn("Supabase Cloud Sync warning:", e);
+    }
+  };
+
+  const syncToCloud = async (newPin, newStaff) => {
+    try {
+      await supabase.from("stall_config").upsert({
+        id: "default_stall",
+        manager_pin: newPin !== undefined ? newPin : managerPin,
+        staff_list: newStaff !== undefined ? newStaff : staffList,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase Cloud Push warning:", e);
+    }
+  };
+
   useEffect(() => {
     if (typeof window !== "undefined") {
-      // Load saved PINs & Staff
+      // Load saved PINs & Staff from LocalStorage first for instant UX
       const savedPin = localStorage.getItem("stall_manager_pin");
       if (savedPin) setManagerPin(savedPin);
 
@@ -38,6 +75,9 @@ export function AuthProvider({ children }) {
       if (savedActiveStaff) {
         try { setActiveStaff(JSON.parse(savedActiveStaff)); } catch (e) {}
       }
+
+      // Fetch latest cloud config to sync devices (PC <-> Phone)
+      syncFromCloud();
     }
     setLoading(false);
   }, []);
@@ -77,7 +117,7 @@ export function AuthProvider({ children }) {
       setActiveStaff(null);
       return { success: true };
     }
-    return { success: false, error: "Incorrect Manager PIN! (Default is 1234)" };
+    return { success: false, error: `Incorrect Manager PIN! If changed on PC, sync cloud or use Manager PIN.` };
   };
 
   const loginAsEmployee = (codeOrPin) => {
@@ -93,6 +133,7 @@ export function AuthProvider({ children }) {
   const updateManagerPin = (newPin) => {
     if (!newPin || newPin.length < 4) return { success: false, error: "PIN must be at least 4 digits" };
     setManagerPin(newPin);
+    syncToCloud(newPin, undefined);
     return { success: true };
   };
 
@@ -103,12 +144,39 @@ export function AuthProvider({ children }) {
       code: code || `EMP-${Math.floor(100 + Math.random() * 900)}`,
       pin: pin || `${Math.floor(1000 + Math.random() * 9000)}`,
     };
-    setStaffList((prev) => [...prev, newStaff]);
+    const updatedList = [...staffList, newStaff];
+    setStaffList(updatedList);
+    syncToCloud(undefined, updatedList);
     return newStaff;
   };
 
   const deleteStaff = (id) => {
-    setStaffList((prev) => prev.filter(s => s.id !== id));
+    const updatedList = staffList.filter(s => s.id !== id);
+    setStaffList(updatedList);
+    syncToCloud(undefined, updatedList);
+  };
+
+  const exportConfigCode = () => {
+    const payload = { managerPin, staffList };
+    return btoa(JSON.stringify(payload));
+  };
+
+  const importConfigCode = (codeStr) => {
+    try {
+      const decoded = JSON.parse(atob(codeStr.trim()));
+      if (decoded.managerPin) {
+        setManagerPin(decoded.managerPin);
+        if (typeof window !== "undefined") localStorage.setItem("stall_manager_pin", decoded.managerPin);
+      }
+      if (decoded.staffList && Array.isArray(decoded.staffList)) {
+        setStaffList(decoded.staffList);
+        if (typeof window !== "undefined") localStorage.setItem("stall_staff_list", JSON.stringify(decoded.staffList));
+      }
+      syncToCloud(decoded.managerPin, decoded.staffList);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: "Invalid Sync Code format." };
+    }
   };
 
   const signOut = () => {
@@ -137,6 +205,9 @@ export function AuthProvider({ children }) {
         deleteStaff,
         setRole,
         signOut,
+        syncFromCloud,
+        exportConfigCode,
+        importConfigCode,
       }}
     >
       {children}
