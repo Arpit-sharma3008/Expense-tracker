@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
   const { loginAsManager, loginAsEmployee, managerPin, staffList } = useAuth();
+  const router = useRouter();
   const [loginRole, setLoginRole] = useState("manager"); // "manager" | "employee"
 
   const [inputPin, setInputPin] = useState("");
@@ -14,7 +16,9 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     const res = loginAsManager(inputPin);
-    if (!res.success) {
+    if (res.success) {
+      router.push("/");
+    } else {
       setError(res.error);
     }
   };
@@ -23,7 +27,12 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     const res = loginAsEmployee(inputPin);
-    if (!res.success) {
+    if (res.success) {
+      router.push("/sales");
+      if (typeof window !== "undefined") {
+        window.location.href = "/sales";
+      }
+    } else {
       setError(res.error);
     }
   };
