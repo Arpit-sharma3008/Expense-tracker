@@ -122,7 +122,7 @@ export const DEFAULT_INVENTORY = {
   carry_bag: { key: "carry_bag", name: "Carry Bag", stock: 0, unit: "pcs", costPerUnit: 1.30, category: "Packaging" },
 };
 
-/* ---- Helper for Local Storage Persistence ---- */
+/* Helper for Local Storage Persistence */
 const loadLocal = (key, fallback) => {
   if (typeof window === "undefined") return fallback;
   try {
@@ -147,10 +147,10 @@ const saveLocal = (key, data) => {
 const mergeById = (existing = [], incoming = []) => {
   const map = new Map();
   existing.forEach((item) => {
-    if (item && item.id) map.set(item.id, item);
+    if (item && (item.id || item.code)) map.set(item.id || item.code, item);
   });
   incoming.forEach((item) => {
-    if (item && item.id) map.set(item.id, item);
+    if (item && (item.id || item.code)) map.set(item.id || item.code, item);
   });
   return Array.from(map.values()).sort((a, b) => {
     const da = a.createdAt || a.date || "";
@@ -174,10 +174,10 @@ export function DataProvider({ children }) {
   const [dataLoading, setDataLoading] = useState(false);
 
   // Keep ref of latest state to push full payload easily
-  const latestStateRef = useRef({ sales, expenses, wastage, closures });
+  const latestStateRef = useRef({ sales, expenses, wastage, closures, skus, inventory, vendors });
   useEffect(() => {
-    latestStateRef.current = { sales, expenses, wastage, closures };
-  }, [sales, expenses, wastage, closures]);
+    latestStateRef.current = { sales, expenses, wastage, closures, skus, inventory, vendors };
+  }, [sales, expenses, wastage, closures, skus, inventory, vendors]);
 
   // Sync state changes to LocalStorage
   useEffect(() => saveLocal("sales", sales), [sales]);
@@ -188,7 +188,7 @@ export function DataProvider({ children }) {
   useEffect(() => saveLocal("skus", skus), [skus]);
   useEffect(() => saveLocal("inventory", inventory), [inventory]);
 
-  /* Push full data payload to stall_config.staff_list in Supabase Cloud */
+  /* Push full data payload (sales, expenses, wastage, closures, skus, inventory, vendors) to stall_config.staff_list */
   const pushToCloudConfig = useCallback(async (customPayload) => {
     try {
       const stateToPush = customPayload || latestStateRef.current;
@@ -199,6 +199,9 @@ export function DataProvider({ children }) {
           expenses: stateToPush.expenses || [],
           wastage: stateToPush.wastage || [],
           closures: stateToPush.closures || [],
+          skus: stateToPush.skus || DEFAULT_SKUS,
+          inventory: stateToPush.inventory || DEFAULT_INVENTORY,
+          vendors: stateToPush.vendors || [],
           updatedAt: new Date().toISOString(),
         },
       });
@@ -212,107 +215,67 @@ export function DataProvider({ children }) {
     try {
       // 1. Fetch primary stall_config JSON cloud payload
       const configRes = await supabase.from("stall_config").select("*").eq("id", "default_stall");
+      let cloudData = null;
       if (configRes.data && configRes.data.length > 0) {
-        const cloudData = configRes.data[0].staff_list;
-        if (cloudData && typeof cloudData === "object" && !Array.isArray(cloudData)) {
-          if (Array.isArray(cloudData.sales)) {
-            setSales((prev) => mergeById(prev, cloudData.sales));
-          }
-          if (Array.isArray(cloudData.expenses)) {
-            setExpenses((prev) => mergeById(prev, cloudData.expenses));
-          }
-          if (Array.isArray(cloudData.wastage)) {
-            setWastage((prev) => mergeById(prev, cloudData.wastage));
-          }
-          if (Array.isArray(cloudData.closures)) {
-            setClosures((prev) => mergeById(prev, cloudData.closures));
-          }
+        cloudData = configRes.data[0].staff_list;
+      }
+
+      let mergedSales = latestStateRef.current.sales;
+      let mergedExpenses = latestStateRef.current.expenses;
+      let mergedWastage = latestStateRef.current.wastage;
+      let mergedClosures = latestStateRef.current.closures;
+      let mergedSkus = latestStateRef.current.skus;
+      let mergedInventory = latestStateRef.current.inventory;
+      let mergedVendors = latestStateRef.current.vendors;
+
+      if (cloudData && typeof cloudData === "object" && !Array.isArray(cloudData)) {
+        if (Array.isArray(cloudData.sales)) {
+          mergedSales = mergeById(mergedSales, cloudData.sales);
+        }
+        if (Array.isArray(cloudData.expenses)) {
+          mergedExpenses = mergeById(mergedExpenses, cloudData.expenses);
+        }
+        if (Array.isArray(cloudData.wastage)) {
+          mergedWastage = mergeById(mergedWastage, cloudData.wastage);
+        }
+        if (Array.isArray(cloudData.closures)) {
+          mergedClosures = mergeById(mergedClosures, cloudData.closures);
+        }
+        if (Array.isArray(cloudData.skus) && cloudData.skus.length > 0) {
+          mergedSkus = mergeById(mergedSkus, cloudData.skus);
+        }
+        if (cloudData.inventory && Object.keys(cloudData.inventory).length > 0) {
+          mergedInventory = { ...mergedInventory, ...cloudData.inventory };
+        }
+        if (Array.isArray(cloudData.vendors)) {
+          mergedVendors = mergeById(mergedVendors, cloudData.vendors);
         }
       }
 
-      // 2. Also query individual tables if they exist
-      const [expRes, saleRes, wasteRes, closureRes] = await Promise.allSettled([
-        supabase.from("expenses").select("*").order("date", { ascending: false }),
-        supabase.from("sales").select("*").order("date", { ascending: false }),
-        supabase.from("wastage").select("*").order("date", { ascending: false }),
-        supabase.from("closures").select("*").order("date", { ascending: false }),
-      ]);
+      setSales(mergedSales);
+      setExpenses(mergedExpenses);
+      setWastage(mergedWastage);
+      setClosures(mergedClosures);
+      setSkus(mergedSkus);
+      setInventory(mergedInventory);
+      setVendors(mergedVendors);
 
-      if (expRes.status === "fulfilled" && expRes.value?.data?.length > 0) {
-        const mappedExps = expRes.value.data.map(r => ({
-          id: r.id,
-          categoryId: r.category_id || "cat-miscellaneous",
-          title: r.description || r.title || "Expense",
-          amount: parseFloat(r.amount || 0),
-          date: r.date,
-          receiptImage: r.receipt_url || r.receipt_image,
-          paymentMethod: r.payment_method || "Cash",
-          vendorName: r.vendor_name || "",
-          inventoryKey: r.inventory_key || null,
-          itemQty: r.item_qty ? parseFloat(r.item_qty) : null,
-          notes: r.notes || "",
-          createdAt: r.created_at,
-        }));
-        setExpenses((prev) => mergeById(prev, mappedExps));
-      }
-
-      if (saleRes.status === "fulfilled" && saleRes.value?.data?.length > 0) {
-        const mappedSales = saleRes.value.data.map(r => ({
-          id: r.id,
-          date: r.date,
-          time: r.time || "12:00",
-          totalAmount: parseFloat(r.total_amount || r.amount || 0),
-          cashAmount: parseFloat(r.cash_amount || 0),
-          upiAmount: parseFloat(r.upi_amount || 0),
-          cardAmount: parseFloat(r.card_amount || 0),
-          customerCount: r.customer_count || 0,
-          packagingType: r.packaging_type || "dine_in",
-          packagingCost: parseFloat(r.packaging_cost || 0),
-          cogs: parseFloat(r.cogs || 0),
-          items: r.items || [],
-          notes: r.notes || "",
-          createdAt: r.created_at,
-        }));
-        setSales((prev) => mergeById(prev, mappedSales));
-      }
-
-      if (wasteRes.status === "fulfilled" && wasteRes.value?.data?.length > 0) {
-        const mappedWastage = wasteRes.value.data.map(r => ({
-          id: r.id,
-          date: r.date,
-          itemName: r.item_name,
-          quantity: parseFloat(r.quantity || 1),
-          unit: r.unit || "pcs",
-          estimatedCost: parseFloat(r.estimated_cost || 0),
-          reason: r.reason || "Spoiled",
-          notes: r.notes || "",
-          createdAt: r.created_at,
-        }));
-        setWastage((prev) => mergeById(prev, mappedWastage));
-      }
-
-      if (closureRes.status === "fulfilled" && closureRes.value?.data?.length > 0) {
-        const mappedClosures = closureRes.value.data.map(r => ({
-          id: r.id,
-          date: r.date,
-          openingCash: parseFloat(r.opening_cash || 0),
-          totalCashSales: parseFloat(r.total_cash_sales || 0),
-          totalCashExpenses: parseFloat(r.total_cash_expenses || 0),
-          expectedCash: parseFloat(r.expected_cash || 0),
-          actualCash: parseFloat(r.actual_cash || 0),
-          difference: parseFloat(r.difference || 0),
-          staffName: r.staff_name || "",
-          notes: r.notes || "",
-          createdAt: r.created_at,
-        }));
-        setClosures((prev) => mergeById(prev, mappedClosures));
-      }
+      // Auto-seed/sync merged dataset to Supabase Cloud so all devices (PC & Phone) match 100%
+      pushToCloudConfig({
+        sales: mergedSales,
+        expenses: mergedExpenses,
+        wastage: mergedWastage,
+        closures: mergedClosures,
+        skus: mergedSkus,
+        inventory: mergedInventory,
+        vendors: mergedVendors,
+      });
     } catch (err) {
       console.warn("Supabase fetch warning:", err);
     } finally {
       setDataLoading(false);
     }
-  }, []);
+  }, [pushToCloudConfig]);
 
   useEffect(() => {
     fetchFromSupabase();
@@ -328,7 +291,6 @@ export function DataProvider({ children }) {
     const packagingType = saleData.packagingType || "dine_in";
     const items = saleData.items || [];
     
-    // Compute total bowls sold in order
     let totalBowls = 0;
     items.forEach(i => {
       if (i.category === "Bowls" || i.id?.startsWith("sku-") || i.name?.toLowerCase().includes("bowl")) {
@@ -336,7 +298,6 @@ export function DataProvider({ children }) {
       }
     });
 
-    // Calculate ingredient & packaging consumption & COGS
     let calculatedCogs = 0;
     const stockDeductions = {};
 
@@ -368,6 +329,7 @@ export function DataProvider({ children }) {
       });
     }
 
+    let updatedInventory = inventory;
     setInventory((prevInv) => {
       const nextInv = { ...prevInv };
       Object.entries(stockDeductions).forEach(([key, qtyDeducted]) => {
@@ -381,6 +343,7 @@ export function DataProvider({ children }) {
           };
         }
       });
+      updatedInventory = nextInv;
       return nextInv;
     });
 
@@ -406,11 +369,11 @@ export function DataProvider({ children }) {
       pushToCloudConfig({
         ...latestStateRef.current,
         sales: updated,
+        inventory: updatedInventory,
       });
       return updated;
     });
 
-    // Also attempt individual table insert
     try {
       await supabase.from("sales").insert({
         date: newSale.date,
@@ -431,7 +394,7 @@ export function DataProvider({ children }) {
     }
 
     return newSale;
-  }, [pushToCloudConfig]);
+  }, [inventory, pushToCloudConfig]);
 
   const deleteSale = useCallback(async (id) => {
     setSales((prev) => {
@@ -466,12 +429,13 @@ export function DataProvider({ children }) {
       createdAt: new Date().toISOString(),
     };
 
+    let updatedInventory = inventory;
     if (itemKey && itemQty > 0) {
       setInventory((prevInv) => {
         const target = prevInv[itemKey] || { name: itemKey, stock: 0, unit: "g", costPerUnit: 0 };
         const newStock = (target.stock || 0) + itemQty;
         const newUnitCost = amount / itemQty;
-        return {
+        const nextInv = {
           ...prevInv,
           [itemKey]: {
             ...target,
@@ -479,6 +443,8 @@ export function DataProvider({ children }) {
             costPerUnit: Math.round(newUnitCost * 100) / 100,
           },
         };
+        updatedInventory = nextInv;
+        return nextInv;
       });
     }
 
@@ -487,6 +453,7 @@ export function DataProvider({ children }) {
       pushToCloudConfig({
         ...latestStateRef.current,
         expenses: updated,
+        inventory: updatedInventory,
       });
       return updated;
     });
@@ -507,7 +474,7 @@ export function DataProvider({ children }) {
     }
 
     return newExpense;
-  }, [pushToCloudConfig]);
+  }, [inventory, pushToCloudConfig]);
 
   const deleteExpense = useCallback(async (id) => {
     setExpenses((prev) => {
@@ -523,14 +490,21 @@ export function DataProvider({ children }) {
 
   /* ======== INVENTORY MANAGEMENT ======== */
   const updateInventoryItem = useCallback((key, updates) => {
-    setInventory((prev) => ({
-      ...prev,
-      [key]: {
-        ...(prev[key] || { key, name: key, stock: 0, unit: "g", costPerUnit: 0 }),
-        ...updates,
-      },
-    }));
-  }, []);
+    setInventory((prev) => {
+      const nextInv = {
+        ...prev,
+        [key]: {
+          ...(prev[key] || { key, name: key, stock: 0, unit: "g", costPerUnit: 0 }),
+          ...updates,
+        },
+      };
+      pushToCloudConfig({
+        ...latestStateRef.current,
+        inventory: nextInv,
+      });
+      return nextInv;
+    });
+  }, [pushToCloudConfig]);
 
   /* ======== WASTAGE MANAGEMENT ======== */
   const addWastage = useCallback(async (wasteData) => {
@@ -632,17 +606,38 @@ export function DataProvider({ children }) {
       balanceDue: parseFloat(vendorData.balanceDue || 0),
       notes: vendorData.notes || "",
     };
-    setVendors((prev) => [newVendor, ...prev]);
+    setVendors((prev) => {
+      const updated = mergeById(prev, [newVendor]);
+      pushToCloudConfig({
+        ...latestStateRef.current,
+        vendors: updated,
+      });
+      return updated;
+    });
     return newVendor;
-  }, []);
+  }, [pushToCloudConfig]);
 
   const updateVendor = useCallback((id, updates) => {
-    setVendors((prev) => prev.map((v) => (v.id === id ? { ...v, ...updates } : v)));
-  }, []);
+    setVendors((prev) => {
+      const updated = prev.map((v) => (v.id === id ? { ...v, ...updates } : v));
+      pushToCloudConfig({
+        ...latestStateRef.current,
+        vendors: updated,
+      });
+      return updated;
+    });
+  }, [pushToCloudConfig]);
 
   const deleteVendor = useCallback((id) => {
-    setVendors((prev) => prev.filter((v) => v.id !== id));
-  }, []);
+    setVendors((prev) => {
+      const updated = prev.filter((v) => v.id !== id);
+      pushToCloudConfig({
+        ...latestStateRef.current,
+        vendors: updated,
+      });
+      return updated;
+    });
+  }, [pushToCloudConfig]);
 
   /* ======== SKU / MENU MANAGEMENT ======== */
   const addSku = useCallback((skuData) => {
@@ -656,17 +651,38 @@ export function DataProvider({ children }) {
       stock: parseInt(skuData.stock || 100),
       unit: skuData.unit || "bowl",
     };
-    setSkus((prev) => [...prev, newSku]);
+    setSkus((prev) => {
+      const updated = mergeById(prev, [newSku]);
+      pushToCloudConfig({
+        ...latestStateRef.current,
+        skus: updated,
+      });
+      return updated;
+    });
     return newSku;
-  }, []);
+  }, [pushToCloudConfig]);
 
   const updateSku = useCallback((id, updates) => {
-    setSkus((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)));
-  }, []);
+    setSkus((prev) => {
+      const updated = prev.map((s) => (s.id === id ? { ...s, ...updates } : s));
+      pushToCloudConfig({
+        ...latestStateRef.current,
+        skus: updated,
+      });
+      return updated;
+    });
+  }, [pushToCloudConfig]);
 
   const deleteSku = useCallback((id) => {
-    setSkus((prev) => prev.filter((s) => s.id !== id));
-  }, []);
+    setSkus((prev) => {
+      const updated = prev.filter((s) => s.id !== id);
+      pushToCloudConfig({
+        ...latestStateRef.current,
+        skus: updated,
+      });
+      return updated;
+    });
+  }, [pushToCloudConfig]);
 
   /* ======== HELPERS & DATA RESET ======== */
   const getCategoryById = useCallback((id) => {
@@ -691,7 +707,7 @@ export function DataProvider({ children }) {
       localStorage.removeItem("stall_app_skus");
       localStorage.removeItem("stall_app_inventory");
     }
-    await pushToCloudConfig({ sales: [], expenses: [], wastage: [], closures: [] });
+    await pushToCloudConfig({ sales: [], expenses: [], wastage: [], closures: [], skus: DEFAULT_SKUS, inventory: DEFAULT_INVENTORY, vendors: [] });
   }, [pushToCloudConfig]);
 
   const value = {
