@@ -5,12 +5,14 @@ import Header from "@/components/Header/Header";
 import { useData, STALL_EXPENSE_CATEGORIES } from "@/context/DataContext";
 
 export default function ExpensesPage() {
-  const { expenses, addExpense, deleteExpense, getCategoryById } = useData();
+  const { expenses, addExpense, deleteExpense, getCategoryById, inventory } = useData();
 
   // Form State
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState(STALL_EXPENSE_CATEGORIES[0].id);
+  const [inventoryKey, setInventoryKey] = useState("");
+  const [itemQty, setItemQty] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [vendorName, setVendorName] = useState("");
@@ -47,6 +49,8 @@ export default function ExpensesPage() {
       title,
       amount: parseFloat(amount),
       categoryId,
+      inventoryKey: inventoryKey || null,
+      itemQty: itemQty ? parseFloat(itemQty) : null,
       date,
       paymentMethod,
       vendorName,
@@ -56,6 +60,8 @@ export default function ExpensesPage() {
 
     setTitle("");
     setAmount("");
+    setInventoryKey("");
+    setItemQty("");
     setVendorName("");
     setNotes("");
     setReceiptImage(null);
@@ -88,7 +94,7 @@ export default function ExpensesPage() {
                 <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Item / Description</label>
                 <input
                   type="text"
-                  placeholder="e.g. 10kg Amul Butter, Paper Cups 500pcs"
+                  placeholder="e.g. Fresh Milk 10 Litres, 5kg Oats"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
@@ -101,7 +107,7 @@ export default function ExpensesPage() {
                   <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Amount (₹)</label>
                   <input
                     type="number"
-                    placeholder="e.g. 1200"
+                    placeholder="e.g. 600"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     required
@@ -135,6 +141,37 @@ export default function ExpensesPage() {
                   ))}
                 </select>
               </div>
+
+              {/* Optional Link to Raw Material Stock */}
+              {(categoryId === "cat-ingredients" || categoryId === "cat-packaging") && (
+                <div style={{ background: "rgba(16,185,129,0.08)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(16,185,129,0.2)" }}>
+                  <label style={{ fontWeight: "700", fontSize: "0.85rem", display: "block", marginBottom: "6px", color: "#10b981" }}>
+                    📦 Credit Raw Material Inventory Stock (Optional)
+                  </label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "10px" }}>
+                    <select
+                      value={inventoryKey}
+                      onChange={(e) => setInventoryKey(e.target.value)}
+                      style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border-color)", background: "var(--bg-elevated)", color: "var(--text-primary)", fontSize: "0.85rem" }}
+                    >
+                      <option value="">-- Select Inventory Item --</option>
+                      {Object.values(inventory || {}).map((item) => (
+                        <option key={item.key} value={item.key}>
+                          {item.name} ({item.unit})
+                        </option>
+                      ))}
+                    </select>
+
+                    <input
+                      type="number"
+                      placeholder={inventoryKey ? `Qty in ${inventory[inventoryKey]?.unit}` : "Purchased Qty"}
+                      value={itemQty}
+                      onChange={(e) => setItemQty(e.target.value)}
+                      style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border-color)", background: "var(--bg-elevated)", color: "var(--text-primary)", fontSize: "0.85rem" }}
+                    />
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                 <div>

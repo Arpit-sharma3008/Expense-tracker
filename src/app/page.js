@@ -121,18 +121,21 @@ export default function StallDashboard() {
 
       <div className={styles.page}>
         {/* Quick Shortcut Buttons */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginBottom: "20px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "12px", marginBottom: "20px" }}>
           <Link href="/sales" className="btn btn-primary" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "12px 16px", borderRadius: "12px", textDecoration: "none", fontWeight: 600 }}>
             <span style={{ fontSize: "1.2rem" }}>🛒</span> Record Sales POS
           </Link>
           <Link href="/expenses" className="btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "12px 16px", borderRadius: "12px", background: "var(--bg-elevated)", border: "1px solid var(--border-color)", textDecoration: "none", fontWeight: 600 }}>
             <span style={{ fontSize: "1.2rem" }}>🧾</span> Add Expense & Bill
           </Link>
+          <Link href="/inventory" className="btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "12px 16px", borderRadius: "12px", background: "var(--bg-elevated)", border: "1px solid var(--border-color)", textDecoration: "none", fontWeight: 600 }}>
+            <span style={{ fontSize: "1.2rem" }}>📦</span> Inventory Stock
+          </Link>
           <Link href="/wastage" className="btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "12px 16px", borderRadius: "12px", background: "var(--bg-elevated)", border: "1px solid var(--border-color)", textDecoration: "none", fontWeight: 600 }}>
             <span style={{ fontSize: "1.2rem" }}>🗑️</span> Log Wastage
           </Link>
           <Link href="/closure" className="btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "12px 16px", borderRadius: "12px", background: "var(--bg-elevated)", border: "1px solid var(--border-color)", textDecoration: "none", fontWeight: 600 }}>
-            <span style={{ fontSize: "1.2rem" }}>💵</span> Day End Cash Closure
+            <span style={{ fontSize: "1.2rem" }}>💵</span> Cash Drawer
           </Link>
         </div>
 

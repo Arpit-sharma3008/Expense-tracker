@@ -13,6 +13,7 @@ export default function SalesPage() {
 
   /* ---- POS Cart State ---- */
   const [cart, setCart] = useState([]);
+  const [packagingType, setPackagingType] = useState("dine_in"); // "dine_in" | "parcel"
   const [posPayMethod, setPosPayMethod] = useState("UPI"); // "UPI", "Cash", "Card"
   const [posCustomerCount, setPosCustomerCount] = useState(1);
   const [posNotes, setPosNotes] = useState("");
@@ -81,6 +82,7 @@ export default function SalesPage() {
       upiAmount: upi,
       cardAmount: card,
       customerCount: posCustomerCount,
+      packagingType,
       items: cart,
       notes: posNotes,
     });
@@ -234,6 +236,47 @@ export default function SalesPage() {
                     Tap items above to build customer order.
                   </div>
                 )}
+
+                {/* Packaging Option Selector */}
+                <div style={{ marginBottom: "14px" }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--text-tertiary)", display: "block", marginBottom: "6px" }}>Order Packaging</label>
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setPackagingType("dine_in")}
+                      style={{
+                        flex: 1,
+                        padding: "8px 6px",
+                        borderRadius: "8px",
+                        border: packagingType === "dine_in" ? "2px solid #10b981" : "1px solid var(--border-color)",
+                        background: packagingType === "dine_in" ? "rgba(16,185,129,0.15)" : "var(--bg-elevated)",
+                        color: "var(--text-primary)",
+                        fontWeight: "700",
+                        fontSize: "0.8rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      🍽️ Dine-In (Paper Bowl)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPackagingType("parcel")}
+                      style={{
+                        flex: 1,
+                        padding: "8px 6px",
+                        borderRadius: "8px",
+                        border: packagingType === "parcel" ? "2px solid #3b82f6" : "1px solid var(--border-color)",
+                        background: packagingType === "parcel" ? "rgba(59,130,246,0.15)" : "var(--bg-elevated)",
+                        color: "var(--text-primary)",
+                        fontWeight: "700",
+                        fontSize: "0.8rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      🛍️ Parcel (+₹6.90 Pack)
+                    </button>
+                  </div>
+                </div>
 
                 {/* Payment Method Selector */}
                 <div style={{ marginBottom: "14px" }}>

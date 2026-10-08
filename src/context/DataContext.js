@@ -18,15 +18,109 @@ export const STALL_EXPENSE_CATEGORIES = [
   { id: "cat-miscellaneous", name: "Miscellaneous", icon: "🌀", color: "#64748b" },
 ];
 
-/* ---- Default Stall Menu / SKUs Template ---- */
-const DEFAULT_SKUS = [
-  { id: "sku-1", code: "SKU-001", name: "Masala Chai", category: "Beverages", price: 20, costPrice: 6, stock: 100, unit: "cup" },
-  { id: "sku-2", code: "SKU-002", name: "Cold Coffee", category: "Beverages", price: 60, costPrice: 22, stock: 50, unit: "cup" },
-  { id: "sku-3", code: "SKU-003", name: "Veg Samosa", category: "Snacks", price: 25, costPrice: 10, stock: 80, unit: "pc" },
-  { id: "sku-4", code: "SKU-004", name: "Cheese Grilled Sandwich", category: "Snacks", price: 80, costPrice: 35, stock: 40, unit: "pc" },
-  { id: "sku-5", code: "SKU-005", name: "Mineral Water Bottle 500ml", category: "Beverages", price: 10, costPrice: 5, stock: 120, unit: "bottle" },
-  { id: "sku-6", code: "SKU-006", name: "French Fries", category: "Snacks", price: 70, costPrice: 25, stock: 30, unit: "plate" },
+/* ---- Stall Menu / SKUs Template ---- */
+export const DEFAULT_SKUS = [
+  { id: "sku-oat-bowl", code: "SKU-OAT", name: "Oat Meal Bowl", category: "Bowls", price: 49, costPrice: 18.5, stock: 100, unit: "bowl" },
+  { id: "sku-muesli-bowl", code: "SKU-MUESLI", name: "Muesli Bowl", category: "Bowls", price: 59, costPrice: 21.5, stock: 100, unit: "bowl" },
+  { id: "sku-choco-bowl", code: "SKU-CHOCO", name: "Chocolate Bowl", category: "Bowls", price: 69, costPrice: 24.5, stock: 100, unit: "bowl" },
+  { id: "addon-peanut-butter", code: "ADDON-PB", name: "Peanut Butter Add-on", category: "Add-ons", price: 10, costPrice: 4.5, stock: 200, unit: "portion" },
 ];
+
+/* ---- Packaging Rates ---- */
+export const PACKAGING_RATES = {
+  dine_in: {
+    id: "dine_in",
+    name: "Dine-In",
+    items: [
+      { key: "paper_bowl", name: "Paper Bowl", qty: 1, cost: 3.50, unit: "pcs" },
+      { key: "spoon", name: "Spoon", qty: 1, cost: 0.60, unit: "pcs" },
+    ],
+    costPerBowl: 4.10,
+  },
+  parcel: {
+    id: "parcel",
+    name: "Parcel / Delivery",
+    items: [
+      { key: "packaging_box", name: "Packaging Box", qty: 1, cost: 5.00, unit: "pcs" },
+      { key: "carry_bag", name: "Carry Bag", qty: 1, cost: 1.30, unit: "pcs" },
+      { key: "spoon", name: "Spoon", qty: 1, cost: 0.60, unit: "pcs" },
+    ],
+    costPerBowl: 6.90,
+  },
+};
+
+/* ---- Recipes / Bill of Materials (BOM) per Bowl ---- */
+export const RECIPES = {
+  "sku-oat-bowl": [
+    { key: "oats", name: "Oats", qty: 50, unit: "g" },
+    { key: "milk", name: "Milk", qty: 60, unit: "g" },
+    { key: "apple", name: "Apple", qty: 20, unit: "g" },
+    { key: "banana", name: "Banana", qty: 0.286, unit: "pcs" },
+    { key: "pomegranate", name: "Pomegranate", qty: 15, unit: "g" },
+    { key: "pumpkin_seeds", name: "Pumpkin Seeds", qty: 2, unit: "g" },
+    { key: "chia_seeds", name: "Chia Seeds", qty: 3, unit: "g" },
+    { key: "sunflower_seeds", name: "Sunflower Seeds", qty: 3, unit: "g" },
+    { key: "alsi", name: "Alsi (Flaxseeds)", qty: 1, unit: "g" },
+    { key: "almond_flakes", name: "Almond Flakes", qty: 1.5, unit: "g" },
+    { key: "walnut_raw", name: "Raw Walnut (Yield 49%)", qty: 2.04, unit: "g" },
+    { key: "honey", name: "Honey", qty: 3, unit: "g" },
+  ],
+  "sku-muesli-bowl": [
+    { key: "muesli", name: "Muesli", qty: 50, unit: "g" },
+    { key: "milk", name: "Milk", qty: 60, unit: "g" },
+    { key: "apple", name: "Apple", qty: 20, unit: "g" },
+    { key: "banana", name: "Banana", qty: 0.286, unit: "pcs" },
+    { key: "pomegranate", name: "Pomegranate", qty: 15, unit: "g" },
+    { key: "pumpkin_seeds", name: "Pumpkin Seeds", qty: 2, unit: "g" },
+    { key: "chia_seeds", name: "Chia Seeds", qty: 3, unit: "g" },
+    { key: "sunflower_seeds", name: "Sunflower Seeds", qty: 3, unit: "g" },
+    { key: "alsi", name: "Alsi (Flaxseeds)", qty: 1, unit: "g" },
+    { key: "almond_flakes", name: "Almond Flakes", qty: 1.5, unit: "g" },
+    { key: "walnut_raw", name: "Raw Walnut (Yield 49%)", qty: 2.04, unit: "g" },
+    { key: "honey", name: "Honey", qty: 3, unit: "g" },
+  ],
+  "sku-choco-bowl": [
+    { key: "oats", name: "Oats", qty: 50, unit: "g" },
+    { key: "chocolate_powder", name: "Chocolate Powder", qty: 5, unit: "g" },
+    { key: "milk", name: "Milk", qty: 60, unit: "g" },
+    { key: "apple", name: "Apple", qty: 20, unit: "g" },
+    { key: "banana", name: "Banana", qty: 0.286, unit: "pcs" },
+    { key: "pomegranate", name: "Pomegranate", qty: 15, unit: "g" },
+    { key: "pumpkin_seeds", name: "Pumpkin Seeds", qty: 2, unit: "g" },
+    { key: "chia_seeds", name: "Chia Seeds", qty: 3, unit: "g" },
+    { key: "sunflower_seeds", name: "Sunflower Seeds", qty: 3, unit: "g" },
+    { key: "alsi", name: "Alsi (Flaxseeds)", qty: 1, unit: "g" },
+    { key: "almond_flakes", name: "Almond Flakes", qty: 1.5, unit: "g" },
+    { key: "walnut_raw", name: "Raw Walnut (Yield 49%)", qty: 2.04, unit: "g" },
+    { key: "honey", name: "Honey", qty: 3, unit: "g" },
+  ],
+  "addon-peanut-butter": [
+    { key: "peanut_butter", name: "Peanut Butter", qty: 15, unit: "g" },
+  ],
+};
+
+/* ---- Default Raw Material Inventory Template ---- */
+export const DEFAULT_INVENTORY = {
+  oats: { key: "oats", name: "Oats", stock: 0, unit: "g", costPerUnit: 0.12, category: "Grains" },
+  muesli: { key: "muesli", name: "Muesli", stock: 0, unit: "g", costPerUnit: 0.18, category: "Grains" },
+  chocolate_powder: { key: "chocolate_powder", name: "Chocolate Powder", stock: 0, unit: "g", costPerUnit: 0.35, category: "Flavoring" },
+  milk: { key: "milk", name: "Milk", stock: 0, unit: "g", costPerUnit: 0.06, category: "Dairy" },
+  apple: { key: "apple", name: "Apple", stock: 0, unit: "g", costPerUnit: 0.10, category: "Fruits" },
+  banana: { key: "banana", name: "Banana", stock: 0, unit: "pcs", costPerUnit: 4.00, category: "Fruits" },
+  pomegranate: { key: "pomegranate", name: "Pomegranate", stock: 0, unit: "g", costPerUnit: 0.22, category: "Fruits" },
+  pumpkin_seeds: { key: "pumpkin_seeds", name: "Pumpkin Seeds", stock: 0, unit: "g", costPerUnit: 0.60, category: "Seeds & Nuts" },
+  chia_seeds: { key: "chia_seeds", name: "Chia Seeds", stock: 0, unit: "g", costPerUnit: 0.50, category: "Seeds & Nuts" },
+  sunflower_seeds: { key: "sunflower_seeds", name: "Sunflower Seeds", stock: 0, unit: "g", costPerUnit: 0.40, category: "Seeds & Nuts" },
+  alsi: { key: "alsi", name: "Alsi (Flaxseeds)", stock: 0, unit: "g", costPerUnit: 0.25, category: "Seeds & Nuts" },
+  almond_flakes: { key: "almond_flakes", name: "Almond Flakes", stock: 0, unit: "g", costPerUnit: 1.10, category: "Seeds & Nuts" },
+  walnut_raw: { key: "walnut_raw", name: "Raw Walnut (Yield 49%)", stock: 0, unit: "g", costPerUnit: 0.95, category: "Seeds & Nuts" },
+  honey: { key: "honey", name: "Honey", stock: 0, unit: "g", costPerUnit: 0.40, category: "Sweeteners" },
+  peanut_butter: { key: "peanut_butter", name: "Peanut Butter", stock: 0, unit: "g", costPerUnit: 0.35, category: "Add-ons" },
+  paper_bowl: { key: "paper_bowl", name: "Paper Bowl", stock: 0, unit: "pcs", costPerUnit: 3.50, category: "Packaging" },
+  spoon: { key: "spoon", name: "Spoon", stock: 0, unit: "pcs", costPerUnit: 0.60, category: "Packaging" },
+  packaging_box: { key: "packaging_box", name: "Packaging Box", stock: 0, unit: "pcs", costPerUnit: 5.00, category: "Packaging" },
+  carry_bag: { key: "carry_bag", name: "Carry Bag", stock: 0, unit: "pcs", costPerUnit: 1.30, category: "Packaging" },
+};
 
 /* ---- Helper for Local Storage Persistence ---- */
 const loadLocal = (key, fallback) => {
@@ -59,6 +153,7 @@ export function DataProvider({ children }) {
   const [closures, setClosures] = useState(() => loadLocal("closures", []));
   const [vendors, setVendors] = useState(() => loadLocal("vendors", []));
   const [skus, setSkus] = useState(() => loadLocal("skus", DEFAULT_SKUS));
+  const [inventory, setInventory] = useState(() => loadLocal("inventory", DEFAULT_INVENTORY));
   const [categories] = useState(STALL_EXPENSE_CATEGORIES);
   const [dataLoading, setDataLoading] = useState(false);
 
@@ -69,6 +164,7 @@ export function DataProvider({ children }) {
   useEffect(() => saveLocal("closures", closures), [closures]);
   useEffect(() => saveLocal("vendors", vendors), [vendors]);
   useEffect(() => saveLocal("skus", skus), [skus]);
+  useEffect(() => saveLocal("inventory", inventory), [inventory]);
 
   // Optional Supabase Fetching if logged in
   useEffect(() => {
@@ -138,6 +234,69 @@ export function DataProvider({ children }) {
 
   /* ======== SALES MANAGEMENT ======== */
   const addSale = useCallback(async (saleData) => {
+    const packagingType = saleData.packagingType || "dine_in";
+    const items = saleData.items || [];
+    
+    // Compute total bowls sold in order
+    let totalBowls = 0;
+    items.forEach(i => {
+      if (i.category === "Bowls" || i.id?.startsWith("sku-") || i.name?.toLowerCase().includes("bowl")) {
+        totalBowls += (i.qty || 1);
+      }
+    });
+
+    // Calculate ingredient & packaging consumption & COGS
+    let calculatedCogs = 0;
+    const stockDeductions = {}; // key -> qty to deduct
+
+    // 1. Bowl Recipes & Addons
+    items.forEach((item) => {
+      const qty = item.qty || 1;
+      const recipeKey = item.id || item.code || item.name;
+      // Match recipe by SKU ID or code or name
+      let recipe = RECIPES[recipeKey];
+      if (!recipe) {
+        const lowerName = (item.name || "").toLowerCase();
+        if (lowerName.includes("oat")) recipe = RECIPES["sku-oat-bowl"];
+        else if (lowerName.includes("muesli")) recipe = RECIPES["sku-muesli-bowl"];
+        else if (lowerName.includes("choco")) recipe = RECIPES["sku-choco-bowl"];
+        else if (lowerName.includes("peanut")) recipe = RECIPES["addon-peanut-butter"];
+      }
+
+      if (recipe) {
+        recipe.forEach((ing) => {
+          const needed = ing.qty * qty;
+          stockDeductions[ing.key] = (stockDeductions[ing.key] || 0) + needed;
+        });
+      }
+    });
+
+    // 2. Packaging items deduction
+    const packRate = PACKAGING_RATES[packagingType] || PACKAGING_RATES.dine_in;
+    if (totalBowls > 0) {
+      packRate.items.forEach((pItem) => {
+        const needed = pItem.qty * totalBowls;
+        stockDeductions[pItem.key] = (stockDeductions[pItem.key] || 0) + needed;
+      });
+    }
+
+    // Apply stock deductions to inventory & compute total COGS
+    setInventory((prevInv) => {
+      const nextInv = { ...prevInv };
+      Object.entries(stockDeductions).forEach(([key, qtyDeducted]) => {
+        if (nextInv[key]) {
+          const currentStock = nextInv[key].stock || 0;
+          const costPerUnit = nextInv[key].costPerUnit || 0;
+          calculatedCogs += qtyDeducted * costPerUnit;
+          nextInv[key] = {
+            ...nextInv[key],
+            stock: Math.max(0, currentStock - qtyDeducted),
+          };
+        }
+      });
+      return nextInv;
+    });
+
     const newSale = {
       id: saleData.id || `sale-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       date: saleData.date || new Date().toISOString().split("T")[0],
@@ -147,6 +306,9 @@ export function DataProvider({ children }) {
       upiAmount: parseFloat(saleData.upiAmount || 0),
       cardAmount: parseFloat(saleData.cardAmount || 0),
       customerCount: parseInt(saleData.customerCount || 1),
+      packagingType,
+      packagingCost: packRate.costPerBowl * totalBowls,
+      cogs: Math.round(calculatedCogs * 100) / 100,
       items: saleData.items || [],
       notes: saleData.notes || "",
       createdAt: new Date().toISOString(),
@@ -185,20 +347,43 @@ export function DataProvider({ children }) {
 
   /* ======== EXPENSES & BILL MANAGEMENT ======== */
   const addExpense = useCallback(async (expData) => {
+    const amount = parseFloat(expData.amount || 0);
+    const itemKey = expData.inventoryKey;
+    const itemQty = parseFloat(expData.itemQty || 0);
+
     const newExpense = {
       id: expData.id || `exp-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       title: expData.title || expData.description || "Stall Expense",
-      amount: parseFloat(expData.amount || 0),
+      amount,
       categoryId: expData.categoryId || "cat-miscellaneous",
       date: expData.date || new Date().toISOString().split("T")[0],
       paymentMethod: expData.paymentMethod || "Cash",
       vendorName: expData.vendorName || "",
       receiptImage: expData.receiptImage || expData.receiptUrl || null,
+      inventoryKey: itemKey || null,
+      itemQty: itemQty || null,
       notes: expData.notes || "",
       createdAt: new Date().toISOString(),
     };
 
     setExpenses((prev) => [newExpense, ...prev]);
+
+    // If an inventory key and quantity are specified, update inventory stock and unit cost
+    if (itemKey && itemQty > 0) {
+      setInventory((prevInv) => {
+        const target = prevInv[itemKey] || { name: itemKey, stock: 0, unit: "g", costPerUnit: 0 };
+        const newStock = (target.stock || 0) + itemQty;
+        const newUnitCost = amount / itemQty;
+        return {
+          ...prevInv,
+          [itemKey]: {
+            ...target,
+            stock: newStock,
+            costPerUnit: Math.round(newUnitCost * 100) / 100,
+          },
+        };
+      });
+    }
 
     if (user) {
       try {
@@ -225,130 +410,16 @@ export function DataProvider({ children }) {
     }
   }, [user]);
 
-  /* ======== WASTAGE / SPOILAGE MANAGEMENT ======== */
-  const addWastage = useCallback(async (wData) => {
-    const newWaste = {
-      id: wData.id || `waste-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      date: wData.date || new Date().toISOString().split("T")[0],
-      itemName: wData.itemName || "Spoiled Item",
-      quantity: parseFloat(wData.quantity || 1),
-      unit: wData.unit || "pcs",
-      estimatedCost: parseFloat(wData.estimatedCost || 0),
-      reason: wData.reason || "Spoiled/Expired",
-      notes: wData.notes || "",
-      createdAt: new Date().toISOString(),
-    };
-
-    setWastage((prev) => [newWaste, ...prev]);
-
-    if (user) {
-      try {
-        await supabase.from("wastage").insert({
-          user_id: user.id,
-          date: newWaste.date,
-          item_name: newWaste.itemName,
-          quantity: newWaste.quantity,
-          unit: newWaste.unit,
-          estimated_cost: newWaste.estimatedCost,
-          reason: newWaste.reason,
-          notes: newWaste.notes,
-        });
-      } catch (err) {
-        console.warn("Supabase wastage insert silent fallback:", err);
-      }
-    }
-
-    return newWaste;
-  }, [user]);
-
-  const deleteWastage = useCallback((id) => {
-    setWastage((prev) => prev.filter((w) => w.id !== id));
+  /* ======== INVENTORY MANAGEMENT ======== */
+  const updateInventoryItem = useCallback((key, updates) => {
+    setInventory((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] || { key, name: key, stock: 0, unit: "g", costPerUnit: 0 }),
+        ...updates,
+      },
+    }));
   }, []);
-
-  /* ======== DAY END CASH DRAWER RECONCILIATION ======== */
-  const addClosure = useCallback((cData) => {
-    const newClosure = {
-      id: cData.id || `closure-${Date.now()}`,
-      date: cData.date || new Date().toISOString().split("T")[0],
-      openingCash: parseFloat(cData.openingCash || 0),
-      cashSales: parseFloat(cData.cashSales || 0),
-      cashExpenses: parseFloat(cData.cashExpenses || 0),
-      expectedClosingCash: parseFloat(cData.expectedClosingCash || 0),
-      actualClosingCash: parseFloat(cData.actualClosingCash || 0),
-      discrepancy: parseFloat(cData.discrepancy || 0), // actual - expected
-      notes: cData.notes || "",
-      createdAt: new Date().toISOString(),
-    };
-
-    setClosures((prev) => [newClosure, ...prev.filter(c => c.date !== newClosure.date)]);
-    return newClosure;
-  }, []);
-
-  /* ======== VENDOR MANAGEMENT ======== */
-  const addVendor = useCallback((vData) => {
-    const newVendor = {
-      id: vData.id || `vendor-${Date.now()}`,
-      name: vData.name,
-      phone: vData.phone || "",
-      category: vData.category || "Supplies",
-      pendingAmount: parseFloat(vData.pendingAmount || 0),
-      notes: vData.notes || "",
-    };
-    setVendors((prev) => [newVendor, ...prev]);
-    return newVendor;
-  }, []);
-
-  const updateVendor = useCallback((id, updates) => {
-    setVendors((prev) => prev.map((v) => (v.id === id ? { ...v, ...updates } : v)));
-  }, []);
-
-  const deleteVendor = useCallback((id) => {
-    setVendors((prev) => prev.filter((v) => v.id !== id));
-  }, []);
-
-  /* ======== SKU / MENU MANAGEMENT ======== */
-  const addSku = useCallback((skuData) => {
-    const newSku = {
-      id: skuData.id || `sku-${Date.now()}`,
-      code: skuData.code || `SKU-${Math.floor(100 + Math.random() * 900)}`,
-      name: skuData.name,
-      category: skuData.category || "General",
-      price: parseFloat(skuData.price || 0),
-      costPrice: parseFloat(skuData.costPrice || 0),
-      stock: parseInt(skuData.stock || 0),
-      unit: skuData.unit || "pc",
-    };
-    setSkus((prev) => [newSku, ...prev]);
-    return newSku;
-  }, []);
-
-  const updateSku = useCallback((id, updates) => {
-    setSkus((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)));
-  }, []);
-
-  const deleteSku = useCallback((id) => {
-    setSkus((prev) => prev.filter((s) => s.id !== id));
-  }, []);
-
-  /* ======== CLEAR ALL LOCAL DATA ======== */
-  const resetStallData = useCallback(() => {
-    if (confirm("Are you sure you want to reset all stall tracking data to defaults?")) {
-      setSales([]);
-      setExpenses([]);
-      setWastage([]);
-      setClosures([]);
-      setVendors([]);
-      setSkus(DEFAULT_SKUS);
-      localStorage.clear();
-      alert("All data reset successfully.");
-    }
-  }, []);
-
-  /* ======== HELPERS ======== */
-  const getCategoryById = useCallback(
-    (id) => categories.find((c) => c.id === id) || { name: "Miscellaneous", icon: "🌀", color: "#64748b" },
-    [categories]
-  );
 
   const value = {
     sales,
@@ -357,6 +428,7 @@ export function DataProvider({ children }) {
     closures,
     vendors,
     skus,
+    inventory,
     categories,
     dataLoading,
     addSale,
@@ -372,6 +444,7 @@ export function DataProvider({ children }) {
     addSku,
     updateSku,
     deleteSku,
+    updateInventoryItem,
     resetStallData,
     getCategoryById,
   };

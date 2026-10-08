@@ -10,6 +10,7 @@ const MANAGER_NAV = [
   { href: "/", label: "Dashboard (P&L)", icon: "📊" },
   { href: "/sales", label: "Daily Sales POS", icon: "🛒" },
   { href: "/expenses", label: "Expense & Bills", icon: "🧾" },
+  { href: "/inventory", label: "Raw Material Stock", icon: "📦" },
   { href: "/wastage", label: "Wastage Log", icon: "🗑️" },
   { href: "/closure", label: "Cash Drawer", icon: "💵" },
   { href: "/vendors", label: "Vendors & Dues", icon: "👥" },
