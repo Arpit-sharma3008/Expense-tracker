@@ -421,6 +421,150 @@ export function DataProvider({ children }) {
     }));
   }, []);
 
+  /* ======== WASTAGE MANAGEMENT ======== */
+  const addWastage = useCallback(async (wasteData) => {
+    const newWaste = {
+      id: wasteData.id || `waste-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      date: wasteData.date || new Date().toISOString().split("T")[0],
+      itemName: wasteData.itemName || "Wastage",
+      quantity: parseFloat(wasteData.quantity || 1),
+      unit: wasteData.unit || "pcs",
+      estimatedCost: parseFloat(wasteData.estimatedCost || 0),
+      reason: wasteData.reason || "Spoiled",
+      notes: wasteData.notes || "",
+      createdAt: new Date().toISOString(),
+    };
+    setWastage((prev) => [newWaste, ...prev]);
+    if (user) {
+      try {
+        await supabase.from("wastage").insert({
+          user_id: user.id,
+          date: newWaste.date,
+          item_name: newWaste.itemName,
+          quantity: newWaste.quantity,
+          unit: newWaste.unit,
+          estimated_cost: newWaste.estimatedCost,
+          reason: newWaste.reason,
+          notes: newWaste.notes,
+        });
+      } catch (e) {}
+    }
+    return newWaste;
+  }, [user]);
+
+  const deleteWastage = useCallback(async (id) => {
+    setWastage((prev) => prev.filter((w) => w.id !== id));
+    if (user) {
+      try { await supabase.from("wastage").delete().eq("id", id); } catch (e) {}
+    }
+  }, [user]);
+
+  /* ======== CASH CLOSURES ======== */
+  const addClosure = useCallback(async (closureData) => {
+    const newClosure = {
+      id: closureData.id || `closure-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      date: closureData.date || new Date().toISOString().split("T")[0],
+      openingCash: parseFloat(closureData.openingCash || 0),
+      totalCashSales: parseFloat(closureData.totalCashSales || 0),
+      totalCashExpenses: parseFloat(closureData.totalCashExpenses || 0),
+      expectedCash: parseFloat(closureData.expectedCash || 0),
+      actualCash: parseFloat(closureData.actualCash || 0),
+      difference: parseFloat(closureData.difference || 0),
+      staffName: closureData.staffName || "",
+      notes: closureData.notes || "",
+      createdAt: new Date().toISOString(),
+    };
+    setClosures((prev) => [newClosure, ...prev]);
+    if (user) {
+      try {
+        await supabase.from("closures").insert({
+          user_id: user.id,
+          date: newClosure.date,
+          opening_cash: newClosure.openingCash,
+          total_cash_sales: newClosure.totalCashSales,
+          total_cash_expenses: newClosure.totalCashExpenses,
+          expected_cash: newClosure.expectedCash,
+          actual_cash: newClosure.actualCash,
+          difference: newClosure.difference,
+          staff_name: newClosure.staffName,
+          notes: newClosure.notes,
+        });
+      } catch (e) {}
+    }
+    return newClosure;
+  }, [user]);
+
+  /* ======== VENDOR MANAGEMENT ======== */
+  const addVendor = useCallback((vendorData) => {
+    const newVendor = {
+      id: vendorData.id || `vendor-${Date.now()}`,
+      name: vendorData.name || "Vendor",
+      category: vendorData.category || "Supplier",
+      phone: vendorData.phone || "",
+      balanceDue: parseFloat(vendorData.balanceDue || 0),
+      notes: vendorData.notes || "",
+    };
+    setVendors((prev) => [newVendor, ...prev]);
+    return newVendor;
+  }, []);
+
+  const updateVendor = useCallback((id, updates) => {
+    setVendors((prev) => prev.map((v) => (v.id === id ? { ...v, ...updates } : v)));
+  }, []);
+
+  const deleteVendor = useCallback((id) => {
+    setVendors((prev) => prev.filter((v) => v.id !== id));
+  }, []);
+
+  /* ======== SKU / MENU MANAGEMENT ======== */
+  const addSku = useCallback((skuData) => {
+    const newSku = {
+      id: skuData.id || `sku-${Date.now()}`,
+      code: skuData.code || `SKU-${Math.floor(100 + Math.random() * 900)}`,
+      name: skuData.name || "New Item",
+      category: skuData.category || "Bowls",
+      price: parseFloat(skuData.price || 0),
+      costPrice: parseFloat(skuData.costPrice || 0),
+      stock: parseInt(skuData.stock || 100),
+      unit: skuData.unit || "bowl",
+    };
+    setSkus((prev) => [...prev, newSku]);
+    return newSku;
+  }, []);
+
+  const updateSku = useCallback((id, updates) => {
+    setSkus((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)));
+  }, []);
+
+  const deleteSku = useCallback((id) => {
+    setSkus((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
+  /* ======== HELPERS & DATA RESET ======== */
+  const getCategoryById = useCallback((id) => {
+    const found = categories.find((c) => c.id === id);
+    return found || { id, name: id || "Miscellaneous", icon: "🧾", color: "#64748b" };
+  }, [categories]);
+
+  const resetStallData = useCallback(() => {
+    setSales([]);
+    setExpenses([]);
+    setWastage([]);
+    setClosures([]);
+    setVendors([]);
+    setSkus(DEFAULT_SKUS);
+    setInventory(DEFAULT_INVENTORY);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("stall_app_sales");
+      localStorage.removeItem("stall_app_expenses");
+      localStorage.removeItem("stall_app_wastage");
+      localStorage.removeItem("stall_app_closures");
+      localStorage.removeItem("stall_app_vendors");
+      localStorage.removeItem("stall_app_skus");
+      localStorage.removeItem("stall_app_inventory");
+    }
+  }, []);
+
   const value = {
     sales,
     expenses,
