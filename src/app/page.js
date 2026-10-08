@@ -59,14 +59,10 @@ export default function StallDashboard() {
     const todayExp = todayExpenses.reduce((s, x) => s + (parseFloat(x?.amount) || 0), 0);
     const todayWaste = todayWastage.reduce((s, x) => s + (parseFloat(x?.estimatedCost) || 0), 0);
 
-    let todayCogs = 0;
     let todayBowlsCount = 0;
     const itemBreakdownMap = {};
 
     todaySales.forEach((s) => {
-      if (s.cogs) {
-        todayCogs += parseFloat(s.cogs) || 0;
-      }
       if (s.items && Array.isArray(s.items)) {
         s.items.forEach((item) => {
           const qty = parseInt(item.qty || 1);
@@ -84,11 +80,8 @@ export default function StallDashboard() {
       }
     });
 
-    if (todayCogs === 0 && todayBowlsCount > 0) {
-      todayCogs = todayBowlsCount * 22; // baseline ~₹22 BOM cost
-    }
-
-    const todayNetProfit = todayRev - todayCogs - todayExp - todayWaste;
+    // Pure Today Performance: Today Sales - Today Purchases/Expenses - Today Spoilage
+    const todayNetProfit = todayRev - todayExp - todayWaste;
     const todayMargin = todayRev > 0 ? (todayNetProfit / todayRev) * 100 : 0;
     const isProfit = todayNetProfit > 0;
     const isLoss = todayNetProfit < 0;
@@ -97,7 +90,6 @@ export default function StallDashboard() {
 
     return {
       todayRev,
-      todayCogs,
       todayExp,
       todayWaste,
       todayNetProfit,
@@ -254,42 +246,36 @@ export default function StallDashboard() {
           </div>
 
           {/* P&L Metric Breakdown Grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "12px", marginBottom: "16px" }}>
-            <div style={{ background: "var(--bg-surface)", padding: "12px", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
-              <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", display: "block" }}>Today's Revenue</span>
-              <span style={{ fontSize: "1.1rem", fontWeight: "800", color: "#10b981" }}>{formatCurrency(dailyReview.todayRev)}</span>
-              <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", display: "block" }}>{dailyReview.salesCount} Orders</span>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+            <div style={{ background: "var(--bg-surface)", padding: "14px", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", display: "block" }}>Today's Sales Revenue</span>
+              <span style={{ fontSize: "1.2rem", fontWeight: "800", color: "#10b981" }}>{formatCurrency(dailyReview.todayRev)}</span>
+              <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", display: "block" }}>{dailyReview.salesCount} Sales Logged</span>
             </div>
 
-            <div style={{ background: "var(--bg-surface)", padding: "12px", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
-              <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", display: "block" }}>Raw Material Cost</span>
-              <span style={{ fontSize: "1.1rem", fontWeight: "800", color: "#f59e0b" }}>-{formatCurrency(dailyReview.todayCogs)}</span>
-              <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", display: "block" }}>BOM Ingredients</span>
+            <div style={{ background: "var(--bg-surface)", padding: "14px", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", display: "block" }}>Today's Purchases & Expenses</span>
+              <span style={{ fontSize: "1.2rem", fontWeight: "800", color: "#ef4444" }}>-{formatCurrency(dailyReview.todayExp)}</span>
+              <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", display: "block" }}>{dailyReview.expensesCount} Bills / Purchases</span>
             </div>
 
-            <div style={{ background: "var(--bg-surface)", padding: "12px", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
-              <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", display: "block" }}>Daily Expenses</span>
-              <span style={{ fontSize: "1.1rem", fontWeight: "800", color: "#ef4444" }}>-{formatCurrency(dailyReview.todayExp)}</span>
-              <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", display: "block" }}>{dailyReview.expensesCount} Bills Logged</span>
-            </div>
-
-            <div style={{ background: "var(--bg-surface)", padding: "12px", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
-              <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", display: "block" }}>Wastage Loss</span>
-              <span style={{ fontSize: "1.1rem", fontWeight: "800", color: "#ec4899" }}>-{formatCurrency(dailyReview.todayWaste)}</span>
-              <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", display: "block" }}>Spoilage</span>
+            <div style={{ background: "var(--bg-surface)", padding: "14px", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", display: "block" }}>Today's Spoilage / Wastage</span>
+              <span style={{ fontSize: "1.2rem", fontWeight: "800", color: "#ec4899" }}>-{formatCurrency(dailyReview.todayWaste)}</span>
+              <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", display: "block" }}>Wastage Log</span>
             </div>
 
             <div style={{
               background: dailyReview.isProfit ? "rgba(16,185,129,0.12)" : dailyReview.isLoss ? "rgba(239,68,68,0.12)" : "var(--bg-surface)",
-              padding: "12px",
+              padding: "14px",
               borderRadius: "10px",
               border: dailyReview.isProfit ? "1px solid rgba(16,185,129,0.3)" : dailyReview.isLoss ? "1px solid rgba(239,68,68,0.3)" : "1px solid var(--border-color)",
             }}>
-              <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", display: "block" }}>Net Profit / Margin</span>
-              <span style={{ fontSize: "1.1rem", fontWeight: "800", color: dailyReview.isProfit ? "#10b981" : dailyReview.isLoss ? "#ef4444" : "var(--text-primary)" }}>
-                {formatCurrency(dailyReview.todayNetProfit)}
+              <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", display: "block" }}>Today's Net Profit / Loss</span>
+              <span style={{ fontSize: "1.2rem", fontWeight: "800", color: dailyReview.isProfit ? "#10b981" : dailyReview.isLoss ? "#ef4444" : "var(--text-primary)" }}>
+                {dailyReview.todayNetProfit >= 0 ? "+" : ""}{formatCurrency(dailyReview.todayNetProfit)}
               </span>
-              <span style={{ fontSize: "0.7rem", fontWeight: "700", color: dailyReview.isProfit ? "#10b981" : dailyReview.isLoss ? "#ef4444" : "var(--text-tertiary)" }}>
+              <span style={{ fontSize: "0.75rem", fontWeight: "700", color: dailyReview.isProfit ? "#10b981" : dailyReview.isLoss ? "#ef4444" : "var(--text-tertiary)", display: "block" }}>
                 Margin: {dailyReview.todayMargin.toFixed(1)}%
               </span>
             </div>
@@ -306,21 +292,21 @@ export default function StallDashboard() {
             border: "1px solid var(--border-color)",
           }}>
             <div style={{ fontWeight: "700", marginBottom: "4px", display: "flex", alignItems: "center", gap: "6px", color: "var(--color-primary)" }}>
-              <span>💡 Daily Business Summary & Insight:</span>
+              <span>💡 Daily Business Summary:</span>
             </div>
-            {dailyReview.todayRev === 0 ? (
+            {dailyReview.todayRev === 0 && dailyReview.todayExp === 0 ? (
               <span style={{ color: "var(--text-tertiary)" }}>
-                No sales recorded yet today. Use the <strong>Record Sales POS</strong> button above to log your orders as customers arrive!
+                No sales or expense purchases recorded yet today ({now.toLocaleDateString("en-IN", { month: "short", day: "numeric" })}). Use the buttons above to log sales and daily purchases!
               </span>
             ) : dailyReview.isProfit ? (
               <span>
-                Great job! Your stall generated <strong>{formatCurrency(dailyReview.todayRev)}</strong> across {dailyReview.salesCount} sale entries today ({dailyReview.todayBowlsCount} bowls sold).
-                After deducting <strong>{formatCurrency(dailyReview.todayCogs)}</strong> in ingredient BOM cost, <strong>{formatCurrency(dailyReview.todayExp)}</strong> in daily expense purchases, and <strong>{formatCurrency(dailyReview.todayWaste)}</strong> in wastage, your net profit for today is <strong style={{ color: "#10b981" }}>+{formatCurrency(dailyReview.todayNetProfit)}</strong> with a healthy net margin of <strong style={{ color: "#10b981" }}>{dailyReview.todayMargin.toFixed(1)}%</strong>!
+                Awesome! Your stall collected <strong>{formatCurrency(dailyReview.todayRev)}</strong> in sales today ({dailyReview.todayBowlsCount} items sold) and made <strong>{formatCurrency(dailyReview.todayExp)}</strong> in purchases/expenses. Your net profit for today is <strong style={{ color: "#10b981" }}>+{formatCurrency(dailyReview.todayNetProfit)}</strong> with a net profit margin of <strong style={{ color: "#10b981" }}>{dailyReview.todayMargin.toFixed(1)}%</strong>!
               </span>
             ) : (
               <span>
-                Your stall generated <strong>{formatCurrency(dailyReview.todayRev)}</strong> today, but daily purchases & expenses (<strong>{formatCurrency(dailyReview.todayExp)}</strong>) and ingredient costs (<strong>{formatCurrency(dailyReview.todayCogs)}</strong>) resulted in a net outcome of <strong style={{ color: "#ef4444" }}>{formatCurrency(dailyReview.todayNetProfit)}</strong>. 
-                <em> Note: Purchasing fruits or milk in bulk increases today's expense entry, but credits your raw material inventory for upcoming sales!</em>
+                Your stall collected <strong>{formatCurrency(dailyReview.todayRev)}</strong> in sales today, while today's purchases & expenses were <strong>{formatCurrency(dailyReview.todayExp)}</strong> ({dailyReview.todayWaste > 0 ? `+ ${formatCurrency(dailyReview.todayWaste)} wastage` : ""}). 
+                Today's net status is <strong style={{ color: "#ef4444" }}>{formatCurrency(dailyReview.todayNetProfit)}</strong>. 
+                <em> Buying milk, fruits, or packaging in bulk increases today's purchase bill, but stocks your inventory for future sales!</em>
               </span>
             )}
           </div>
