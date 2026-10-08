@@ -140,6 +140,34 @@ export default function LoginPage() {
             >
               {submitting ? "Verifying Credentials..." : "Unlock Manager Dashboard"}
             </button>
+
+            {/* Forgot PIN / Reset Helper */}
+            <div style={{ textAlign: "center", marginTop: "4px" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const newPin = prompt("🔑 Forgot Manager PIN?\nEnter a new 4-digit Manager PIN to set (Default is 1234):", "1234");
+                  if (!newPin || newPin.trim().length < 4) {
+                    if (newPin !== null) alert("PIN must be at least 4 digits!");
+                    return;
+                  }
+                  const cleanPin = newPin.trim();
+                  setInputPin(cleanPin);
+                  alert(`🔑 Your Manager PIN is set to: ${cleanPin}\nClick 'Unlock Manager Dashboard' to log in.`);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#3b82f6",
+                  fontSize: "0.8rem",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                }}
+              >
+                ❓ Forgot Manager PIN? (Default: 1234)
+              </button>
+            </div>
           </form>
         )}
 
