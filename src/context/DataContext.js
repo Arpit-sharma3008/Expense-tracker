@@ -166,71 +166,96 @@ export function DataProvider({ children }) {
   useEffect(() => saveLocal("skus", skus), [skus]);
   useEffect(() => saveLocal("inventory", inventory), [inventory]);
 
-  // Optional Supabase Fetching if logged in
-  useEffect(() => {
-    if (!user) return;
-    const fetchFromSupabase = async () => {
-      setDataLoading(true);
-      try {
-        const [expRes, saleRes, wasteRes] = await Promise.all([
-          supabase.from("expenses").select("*").eq("user_id", user.id).order("date", { ascending: false }),
-          supabase.from("sales").select("*").eq("user_id", user.id).order("date", { ascending: false }),
-          supabase.from("wastage").select("*").eq("user_id", user.id).order("date", { ascending: false }),
-        ]);
+  // Real-time Supabase Data Fetching & Polling across all devices
+  const fetchFromSupabase = useCallback(async () => {
+    try {
+      const [expRes, saleRes, wasteRes, closureRes] = await Promise.all([
+        supabase.from("expenses").select("*").order("date", { ascending: false }),
+        supabase.from("sales").select("*").order("date", { ascending: false }),
+        supabase.from("wastage").select("*").order("date", { ascending: false }),
+        supabase.from("closures").select("*").order("date", { ascending: false }),
+      ]);
 
-        if (expRes.data && expRes.data.length > 0) {
-          setExpenses(expRes.data.map(r => ({
-            id: r.id,
-            categoryId: r.category_id || "cat-miscellaneous",
-            title: r.description || r.title || "Expense",
-            amount: parseFloat(r.amount),
-            date: r.date,
-            receiptImage: r.receipt_url || r.receipt_image,
-            paymentMethod: r.payment_method || "Cash",
-            vendorName: r.vendor_name || "",
-            notes: r.notes || "",
-            createdAt: r.created_at,
-          })));
-        }
-
-        if (saleRes.data && saleRes.data.length > 0) {
-          setSales(saleRes.data.map(r => ({
-            id: r.id,
-            date: r.date,
-            time: r.time || "12:00",
-            totalAmount: parseFloat(r.total_amount || r.amount || 0),
-            cashAmount: parseFloat(r.cash_amount || 0),
-            upiAmount: parseFloat(r.upi_amount || 0),
-            cardAmount: parseFloat(r.card_amount || 0),
-            customerCount: r.customer_count || 0,
-            items: r.items || [],
-            notes: r.notes || "",
-            createdAt: r.created_at,
-          })));
-        }
-
-        if (wasteRes.data && wasteRes.data.length > 0) {
-          setWastage(wasteRes.data.map(r => ({
-            id: r.id,
-            date: r.date,
-            itemName: r.item_name,
-            quantity: parseFloat(r.quantity),
-            unit: r.unit || "pcs",
-            estimatedCost: parseFloat(r.estimated_cost),
-            reason: r.reason || "Spoiled",
-            notes: r.notes || "",
-            createdAt: r.created_at,
-          })));
-        }
-      } catch (err) {
-        console.warn("Supabase sync optional warning:", err);
-      } finally {
-        setDataLoading(false);
+      if (expRes.data && expRes.data.length > 0) {
+        setExpenses(expRes.data.map(r => ({
+          id: r.id,
+          categoryId: r.category_id || "cat-miscellaneous",
+          title: r.description || r.title || "Expense",
+          amount: parseFloat(r.amount || 0),
+          date: r.date,
+          receiptImage: r.receipt_url || r.receipt_image,
+          paymentMethod: r.payment_method || "Cash",
+          vendorName: r.vendor_name || "",
+          inventoryKey: r.inventory_key || null,
+          itemQty: r.item_qty ? parseFloat(r.item_qty) : null,
+          notes: r.notes || "",
+          createdAt: r.created_at,
+        })));
       }
-    };
 
+      if (saleRes.data && saleRes.data.length > 0) {
+        setSales(saleRes.data.map(r => ({
+          id: r.id,
+          date: r.date,
+          time: r.time || "12:00",
+          totalAmount: parseFloat(r.total_amount || r.amount || 0),
+          cashAmount: parseFloat(r.cash_amount || 0),
+          upiAmount: parseFloat(r.upi_amount || 0),
+          cardAmount: parseFloat(r.card_amount || 0),
+          customerCount: r.customer_count || 0,
+          packagingType: r.packaging_type || "dine_in",
+          packagingCost: parseFloat(r.packaging_cost || 0),
+          cogs: parseFloat(r.cogs || 0),
+          items: r.items || [],
+          notes: r.notes || "",
+          createdAt: r.created_at,
+        })));
+      }
+
+      if (wasteRes.data && wasteRes.data.length > 0) {
+        setWastage(wasteRes.data.map(r => ({
+          id: r.id,
+          date: r.date,
+          itemName: r.item_name,
+          quantity: parseFloat(r.quantity || 1),
+          unit: r.unit || "pcs",
+          estimatedCost: parseFloat(r.estimated_cost || 0),
+          reason: r.reason || "Spoiled",
+          notes: r.notes || "",
+          createdAt: r.created_at,
+        })));
+      }
+
+      if (closureRes.data && closureRes.data.length > 0) {
+        setClosures(closureRes.data.map(r => ({
+          id: r.id,
+          date: r.date,
+          openingCash: parseFloat(r.opening_cash || 0),
+          totalCashSales: parseFloat(r.total_cash_sales || 0),
+          totalCashExpenses: parseFloat(r.total_cash_expenses || 0),
+          expectedCash: parseFloat(r.expected_cash || 0),
+          actualCash: parseFloat(r.actual_cash || 0),
+          difference: parseFloat(r.difference || 0),
+          staffName: r.staff_name || "",
+          notes: r.notes || "",
+          createdAt: r.created_at,
+        })));
+      }
+    } catch (err) {
+      console.warn("Supabase fetch warning:", err);
+    } finally {
+      setDataLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
     fetchFromSupabase();
-  }, [user]);
+    // 8-second interval polling for real-time Phone <-> PC sync
+    const interval = setInterval(() => {
+      fetchFromSupabase();
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [fetchFromSupabase]);
 
   /* ======== SALES MANAGEMENT ======== */
   const addSale = useCallback(async (saleData) => {
@@ -316,34 +341,33 @@ export function DataProvider({ children }) {
 
     setSales((prev) => [newSale, ...prev]);
 
-    // Try background Supabase insert if logged in
-    if (user) {
-      try {
-        await supabase.from("sales").insert({
-          user_id: user.id,
-          date: newSale.date,
-          total_amount: newSale.totalAmount,
-          cash_amount: newSale.cashAmount,
-          upi_amount: newSale.upiAmount,
-          card_amount: newSale.cardAmount,
-          customer_count: newSale.customerCount,
-          items: newSale.items,
-          notes: newSale.notes,
-        });
-      } catch (err) {
-        console.warn("Supabase sale insert silent fallback:", err);
-      }
+    // Always push to Supabase Cloud for universal Phone <-> PC sync
+    try {
+      await supabase.from("sales").insert({
+        date: newSale.date,
+        time: newSale.time,
+        total_amount: newSale.totalAmount,
+        cash_amount: newSale.cashAmount,
+        upi_amount: newSale.upiAmount,
+        card_amount: newSale.cardAmount,
+        customer_count: newSale.customerCount,
+        packaging_type: newSale.packagingType,
+        packaging_cost: newSale.packagingCost,
+        cogs: newSale.cogs,
+        items: newSale.items,
+        notes: newSale.notes,
+      });
+    } catch (err) {
+      console.warn("Supabase sale insert warning:", err);
     }
 
     return newSale;
-  }, [user]);
+  }, []);
 
   const deleteSale = useCallback(async (id) => {
     setSales((prev) => prev.filter((s) => s.id !== id));
-    if (user) {
-      try { await supabase.from("sales").delete().eq("id", id); } catch (e) {}
-    }
-  }, [user]);
+    try { await supabase.from("sales").delete().eq("id", id); } catch (e) {}
+  }, []);
 
   /* ======== EXPENSES & BILL MANAGEMENT ======== */
   const addExpense = useCallback(async (expData) => {
@@ -385,30 +409,28 @@ export function DataProvider({ children }) {
       });
     }
 
-    if (user) {
-      try {
-        await supabase.from("expenses").insert({
-          user_id: user.id,
-          description: newExpense.title,
-          amount: newExpense.amount,
-          category_id: newExpense.categoryId,
-          date: newExpense.date,
-          receipt_url: newExpense.receiptImage,
-        });
-      } catch (err) {
-        console.warn("Supabase expense insert silent fallback:", err);
-      }
+    try {
+      await supabase.from("expenses").insert({
+        description: newExpense.title,
+        amount: newExpense.amount,
+        category_id: newExpense.categoryId,
+        date: newExpense.date,
+        receipt_url: newExpense.receiptImage,
+        inventory_key: newExpense.inventoryKey,
+        item_qty: newExpense.itemQty,
+        notes: newExpense.notes,
+      });
+    } catch (err) {
+      console.warn("Supabase expense insert warning:", err);
     }
 
     return newExpense;
-  }, [user]);
+  }, []);
 
   const deleteExpense = useCallback(async (id) => {
     setExpenses((prev) => prev.filter((e) => e.id !== id));
-    if (user) {
-      try { await supabase.from("expenses").delete().eq("id", id); } catch (e) {}
-    }
-  }, [user]);
+    try { await supabase.from("expenses").delete().eq("id", id); } catch (e) {}
+  }, []);
 
   /* ======== INVENTORY MANAGEMENT ======== */
   const updateInventoryItem = useCallback((key, updates) => {
@@ -435,29 +457,24 @@ export function DataProvider({ children }) {
       createdAt: new Date().toISOString(),
     };
     setWastage((prev) => [newWaste, ...prev]);
-    if (user) {
-      try {
-        await supabase.from("wastage").insert({
-          user_id: user.id,
-          date: newWaste.date,
-          item_name: newWaste.itemName,
-          quantity: newWaste.quantity,
-          unit: newWaste.unit,
-          estimated_cost: newWaste.estimatedCost,
-          reason: newWaste.reason,
-          notes: newWaste.notes,
-        });
-      } catch (e) {}
-    }
+    try {
+      await supabase.from("wastage").insert({
+        date: newWaste.date,
+        item_name: newWaste.itemName,
+        quantity: newWaste.quantity,
+        unit: newWaste.unit,
+        estimated_cost: newWaste.estimatedCost,
+        reason: newWaste.reason,
+        notes: newWaste.notes,
+      });
+    } catch (e) {}
     return newWaste;
-  }, [user]);
+  }, []);
 
   const deleteWastage = useCallback(async (id) => {
     setWastage((prev) => prev.filter((w) => w.id !== id));
-    if (user) {
-      try { await supabase.from("wastage").delete().eq("id", id); } catch (e) {}
-    }
-  }, [user]);
+    try { await supabase.from("wastage").delete().eq("id", id); } catch (e) {}
+  }, []);
 
   /* ======== CASH CLOSURES ======== */
   const addClosure = useCallback(async (closureData) => {
@@ -475,24 +492,21 @@ export function DataProvider({ children }) {
       createdAt: new Date().toISOString(),
     };
     setClosures((prev) => [newClosure, ...prev]);
-    if (user) {
-      try {
-        await supabase.from("closures").insert({
-          user_id: user.id,
-          date: newClosure.date,
-          opening_cash: newClosure.openingCash,
-          total_cash_sales: newClosure.totalCashSales,
-          total_cash_expenses: newClosure.totalCashExpenses,
-          expected_cash: newClosure.expectedCash,
-          actual_cash: newClosure.actualCash,
-          difference: newClosure.difference,
-          staff_name: newClosure.staffName,
-          notes: newClosure.notes,
-        });
-      } catch (e) {}
-    }
+    try {
+      await supabase.from("closures").insert({
+        date: newClosure.date,
+        opening_cash: newClosure.openingCash,
+        total_cash_sales: newClosure.totalCashSales,
+        total_cash_expenses: newClosure.totalCashExpenses,
+        expected_cash: newClosure.expectedCash,
+        actual_cash: newClosure.actualCash,
+        difference: newClosure.difference,
+        staff_name: newClosure.staffName,
+        notes: newClosure.notes,
+      });
+    } catch (e) {}
     return newClosure;
-  }, [user]);
+  }, []);
 
   /* ======== VENDOR MANAGEMENT ======== */
   const addVendor = useCallback((vendorData) => {
@@ -591,6 +605,7 @@ export function DataProvider({ children }) {
     updateInventoryItem,
     resetStallData,
     getCategoryById,
+    syncCloudData: fetchFromSupabase,
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

@@ -1,10 +1,20 @@
 "use client";
 
+import { useData } from "@/context/DataContext";
 import styles from "./Header.module.css";
 
 export default function Header({ title, subtitle }) {
+  const { syncCloudData } = useData();
+
   const handleMenuClick = () => {
     window.dispatchEvent(new CustomEvent("toggle-sidebar"));
+  };
+
+  const handleSyncClick = async () => {
+    if (syncCloudData) {
+      await syncCloudData();
+      alert("☁️ Live Cloud Sync Complete! Phone and PC data updated.");
+    }
   };
 
   return (
@@ -24,12 +34,25 @@ export default function Header({ title, subtitle }) {
       </div>
 
       <div className={styles.right}>
-        <button className={styles.iconBtn} aria-label="Notifications">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-          </svg>
-          <span className={styles.notifDot} />
+        <button
+          onClick={handleSyncClick}
+          title="Sync live data between Phone and PC"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            padding: "6px 12px",
+            borderRadius: "8px",
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border-color)",
+            color: "var(--text-primary)",
+            fontWeight: "700",
+            fontSize: "0.8rem",
+            cursor: "pointer",
+          }}
+        >
+          <span>☁️</span>
+          <span className="hide-mobile">Sync Cloud</span>
         </button>
       </div>
     </header>
