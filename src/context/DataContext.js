@@ -101,25 +101,25 @@ export const RECIPES = {
 
 /* ---- Default Raw Material Inventory Template ---- */
 export const DEFAULT_INVENTORY = {
-  oats: { key: "oats", name: "Oats", stock: 0, unit: "g", costPerUnit: 0.12, category: "Grains" },
-  muesli: { key: "muesli", name: "Muesli", stock: 0, unit: "g", costPerUnit: 0.18, category: "Grains" },
-  chocolate_powder: { key: "chocolate_powder", name: "Chocolate Powder", stock: 0, unit: "g", costPerUnit: 0.35, category: "Flavoring" },
-  milk: { key: "milk", name: "Milk", stock: 0, unit: "g", costPerUnit: 0.06, category: "Dairy" },
-  apple: { key: "apple", name: "Apple", stock: 0, unit: "g", costPerUnit: 0.10, category: "Fruits" },
-  banana: { key: "banana", name: "Banana", stock: 0, unit: "pcs", costPerUnit: 4.00, category: "Fruits" },
-  pomegranate: { key: "pomegranate", name: "Pomegranate", stock: 0, unit: "g", costPerUnit: 0.22, category: "Fruits" },
-  pumpkin_seeds: { key: "pumpkin_seeds", name: "Pumpkin Seeds", stock: 0, unit: "g", costPerUnit: 0.60, category: "Seeds & Nuts" },
-  chia_seeds: { key: "chia_seeds", name: "Chia Seeds", stock: 0, unit: "g", costPerUnit: 0.50, category: "Seeds & Nuts" },
-  sunflower_seeds: { key: "sunflower_seeds", name: "Sunflower Seeds", stock: 0, unit: "g", costPerUnit: 0.40, category: "Seeds & Nuts" },
-  alsi: { key: "alsi", name: "Alsi (Flaxseeds)", stock: 0, unit: "g", costPerUnit: 0.25, category: "Seeds & Nuts" },
-  almond_flakes: { key: "almond_flakes", name: "Almond Flakes", stock: 0, unit: "g", costPerUnit: 1.10, category: "Seeds & Nuts" },
-  walnut_raw: { key: "walnut_raw", name: "Raw Walnut (Yield 49%)", stock: 0, unit: "g", costPerUnit: 0.95, category: "Seeds & Nuts" },
-  honey: { key: "honey", name: "Honey", stock: 0, unit: "g", costPerUnit: 0.40, category: "Sweeteners" },
-  peanut_butter: { key: "peanut_butter", name: "Peanut Butter", stock: 0, unit: "g", costPerUnit: 0.35, category: "Add-ons" },
-  paper_bowl: { key: "paper_bowl", name: "Paper Bowl", stock: 0, unit: "pcs", costPerUnit: 3.50, category: "Packaging" },
-  spoon: { key: "spoon", name: "Spoon", stock: 0, unit: "pcs", costPerUnit: 0.60, category: "Packaging" },
-  packaging_box: { key: "packaging_box", name: "Packaging Box", stock: 0, unit: "pcs", costPerUnit: 5.00, category: "Packaging" },
-  carry_bag: { key: "carry_bag", name: "Carry Bag", stock: 0, unit: "pcs", costPerUnit: 1.30, category: "Packaging" },
+  oats: { key: "oats", name: "Oats", stock: 1000, unit: "g", costPerUnit: 0.12, category: "Grains" },
+  muesli: { key: "muesli", name: "Muesli", stock: 1000, unit: "g", costPerUnit: 0.18, category: "Grains" },
+  chocolate_powder: { key: "chocolate_powder", name: "Chocolate Powder", stock: 500, unit: "g", costPerUnit: 0.35, category: "Flavoring" },
+  milk: { key: "milk", name: "Milk", stock: 5000, unit: "g", costPerUnit: 0.06, category: "Dairy" },
+  apple: { key: "apple", name: "Apple", stock: 2000, unit: "g", costPerUnit: 0.10, category: "Fruits" },
+  banana: { key: "banana", name: "Banana", stock: 50, unit: "pcs", costPerUnit: 4.00, category: "Fruits" },
+  pomegranate: { key: "pomegranate", name: "Pomegranate", stock: 1000, unit: "g", costPerUnit: 0.22, category: "Fruits" },
+  pumpkin_seeds: { key: "pumpkin_seeds", name: "Pumpkin Seeds", stock: 500, unit: "g", costPerUnit: 0.60, category: "Seeds & Nuts" },
+  chia_seeds: { key: "chia_seeds", name: "Chia Seeds", stock: 500, unit: "g", costPerUnit: 0.50, category: "Seeds & Nuts" },
+  sunflower_seeds: { key: "sunflower_seeds", name: "Sunflower Seeds", stock: 500, unit: "g", costPerUnit: 0.40, category: "Seeds & Nuts" },
+  alsi: { key: "alsi", name: "Alsi (Flaxseeds)", stock: 500, unit: "g", costPerUnit: 0.25, category: "Seeds & Nuts" },
+  almond_flakes: { key: "almond_flakes", name: "Almond Flakes", stock: 500, unit: "g", costPerUnit: 1.10, category: "Seeds & Nuts" },
+  walnut_raw: { key: "walnut_raw", name: "Raw Walnut (Yield 49%)", stock: 500, unit: "g", costPerUnit: 0.95, category: "Seeds & Nuts" },
+  honey: { key: "honey", name: "Honey", stock: 1000, unit: "g", costPerUnit: 0.40, category: "Sweeteners" },
+  peanut_butter: { key: "peanut_butter", name: "Peanut Butter", stock: 1000, unit: "g", costPerUnit: 0.35, category: "Add-ons" },
+  paper_bowl: { key: "paper_bowl", name: "Paper Bowl", stock: 200, unit: "pcs", costPerUnit: 3.50, category: "Packaging" },
+  spoon: { key: "spoon", name: "Spoon", stock: 200, unit: "pcs", costPerUnit: 0.60, category: "Packaging" },
+  packaging_box: { key: "packaging_box", name: "Packaging Box", stock: 100, unit: "pcs", costPerUnit: 5.00, category: "Packaging" },
+  carry_bag: { key: "carry_bag", name: "Carry Bag", stock: 100, unit: "pcs", costPerUnit: 1.30, category: "Packaging" },
 };
 
 /* Helper for Local Storage Persistence */
@@ -143,26 +143,10 @@ const saveLocal = (key, data) => {
   }
 };
 
-/* Helper to merge items by id without duplicates */
-const mergeById = (existing = [], incoming = []) => {
-  const map = new Map();
-  existing.forEach((item) => {
-    if (item && (item.id || item.code)) map.set(item.id || item.code, item);
-  });
-  incoming.forEach((item) => {
-    if (item && (item.id || item.code)) map.set(item.id || item.code, item);
-  });
-  return Array.from(map.values()).sort((a, b) => {
-    const da = a.createdAt || a.date || "";
-    const db = b.createdAt || b.date || "";
-    return db.localeCompare(da);
-  });
-};
-
 export function DataProvider({ children }) {
   const { user } = useAuth();
   
-  // Data State with local fallback initializers
+  // Data State initialized with local storage fallbacks
   const [sales, setSales] = useState(() => loadLocal("sales", []));
   const [expenses, setExpenses] = useState(() => loadLocal("expenses", []));
   const [wastage, setWastage] = useState(() => loadLocal("wastage", []));
@@ -188,7 +172,7 @@ export function DataProvider({ children }) {
   useEffect(() => saveLocal("skus", skus), [skus]);
   useEffect(() => saveLocal("inventory", inventory), [inventory]);
 
-  /* Push full data payload (sales, expenses, wastage, closures, skus, inventory, vendors) to stall_config.staff_list */
+  /* Push full store dataset to Supabase Cloud */
   const pushToCloudConfig = useCallback(async (customPayload) => {
     try {
       const stateToPush = customPayload || latestStateRef.current;
@@ -210,66 +194,52 @@ export function DataProvider({ children }) {
     }
   }, []);
 
-  // Real-time Supabase Data Fetching & Polling across all devices
-  const fetchFromSupabase = useCallback(async () => {
+  /* Fetch directly from Supabase Cloud - CLOUD IS SINGLE SOURCE OF TRUTH */
+  const fetchFromSupabase = useCallback(async (opts = {}) => {
     try {
-      // 1. Fetch primary stall_config JSON cloud payload
       const configRes = await supabase.from("stall_config").select("*").eq("id", "default_stall");
-      let cloudData = null;
+      
       if (configRes.data && configRes.data.length > 0) {
-        cloudData = configRes.data[0].staff_list;
-      }
-
-      let mergedSales = latestStateRef.current.sales;
-      let mergedExpenses = latestStateRef.current.expenses;
-      let mergedWastage = latestStateRef.current.wastage;
-      let mergedClosures = latestStateRef.current.closures;
-      let mergedSkus = latestStateRef.current.skus;
-      let mergedInventory = latestStateRef.current.inventory;
-      let mergedVendors = latestStateRef.current.vendors;
-
-      if (cloudData && typeof cloudData === "object" && !Array.isArray(cloudData)) {
-        if (Array.isArray(cloudData.sales)) {
-          mergedSales = mergeById(mergedSales, cloudData.sales);
-        }
-        if (Array.isArray(cloudData.expenses)) {
-          mergedExpenses = mergeById(mergedExpenses, cloudData.expenses);
-        }
-        if (Array.isArray(cloudData.wastage)) {
-          mergedWastage = mergeById(mergedWastage, cloudData.wastage);
-        }
-        if (Array.isArray(cloudData.closures)) {
-          mergedClosures = mergeById(mergedClosures, cloudData.closures);
-        }
-        if (Array.isArray(cloudData.skus) && cloudData.skus.length > 0) {
-          mergedSkus = mergeById(mergedSkus, cloudData.skus);
-        }
-        if (cloudData.inventory && Object.keys(cloudData.inventory).length > 0) {
-          mergedInventory = { ...mergedInventory, ...cloudData.inventory };
-        }
-        if (Array.isArray(cloudData.vendors)) {
-          mergedVendors = mergeById(mergedVendors, cloudData.vendors);
+        const cloudData = configRes.data[0].staff_list;
+        
+        if (cloudData && typeof cloudData === "object" && !Array.isArray(cloudData)) {
+          // Cloud Data is present - Overwrite local state directly to eliminate stale entries
+          if (Array.isArray(cloudData.sales)) {
+            setSales(cloudData.sales);
+          }
+          if (Array.isArray(cloudData.expenses)) {
+            setExpenses(cloudData.expenses);
+          }
+          if (Array.isArray(cloudData.wastage)) {
+            setWastage(cloudData.wastage);
+          }
+          if (Array.isArray(cloudData.closures)) {
+            setClosures(cloudData.closures);
+          }
+          if (Array.isArray(cloudData.skus) && cloudData.skus.length > 0) {
+            setSkus(cloudData.skus);
+          }
+          if (cloudData.inventory && Object.keys(cloudData.inventory).length > 0) {
+            setInventory(cloudData.inventory);
+          }
+          if (Array.isArray(cloudData.vendors)) {
+            setVendors(cloudData.vendors);
+          }
+          return;
         }
       }
 
-      setSales(mergedSales);
-      setExpenses(mergedExpenses);
-      setWastage(mergedWastage);
-      setClosures(mergedClosures);
-      setSkus(mergedSkus);
-      setInventory(mergedInventory);
-      setVendors(mergedVendors);
-
-      // Auto-seed/sync merged dataset to Supabase Cloud so all devices (PC & Phone) match 100%
+      // If Cloud has no payload yet, seed default store data to cloud
       pushToCloudConfig({
-        sales: mergedSales,
-        expenses: mergedExpenses,
-        wastage: mergedWastage,
-        closures: mergedClosures,
-        skus: mergedSkus,
-        inventory: mergedInventory,
-        vendors: mergedVendors,
+        sales: latestStateRef.current.sales,
+        expenses: latestStateRef.current.expenses,
+        wastage: latestStateRef.current.wastage,
+        closures: latestStateRef.current.closures,
+        skus: DEFAULT_SKUS,
+        inventory: DEFAULT_INVENTORY,
+        vendors: latestStateRef.current.vendors,
       });
+
     } catch (err) {
       console.warn("Supabase fetch warning:", err);
     } finally {
@@ -329,23 +299,19 @@ export function DataProvider({ children }) {
       });
     }
 
-    let updatedInventory = inventory;
-    setInventory((prevInv) => {
-      const nextInv = { ...prevInv };
-      Object.entries(stockDeductions).forEach(([key, qtyDeducted]) => {
-        if (nextInv[key]) {
-          const currentStock = nextInv[key].stock || 0;
-          const costPerUnit = nextInv[key].costPerUnit || 0;
-          calculatedCogs += qtyDeducted * costPerUnit;
-          nextInv[key] = {
-            ...nextInv[key],
-            stock: Math.max(0, currentStock - qtyDeducted),
-          };
-        }
-      });
-      updatedInventory = nextInv;
-      return nextInv;
+    let nextInv = { ...latestStateRef.current.inventory };
+    Object.entries(stockDeductions).forEach(([key, qtyDeducted]) => {
+      if (nextInv[key]) {
+        const currentStock = nextInv[key].stock || 0;
+        const costPerUnit = nextInv[key].costPerUnit || 0;
+        calculatedCogs += qtyDeducted * costPerUnit;
+        nextInv[key] = {
+          ...nextInv[key],
+          stock: Math.max(0, currentStock - qtyDeducted),
+        };
+      }
     });
+    setInventory(nextInv);
 
     const newSale = {
       id: saleData.id || `sale-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -364,48 +330,26 @@ export function DataProvider({ children }) {
       createdAt: new Date().toISOString(),
     };
 
-    setSales((prev) => {
-      const updated = mergeById(prev, [newSale]);
-      pushToCloudConfig({
-        ...latestStateRef.current,
-        sales: updated,
-        inventory: updatedInventory,
-      });
-      return updated;
-    });
+    const nextSales = [newSale, ...latestStateRef.current.sales];
+    setSales(nextSales);
 
-    try {
-      await supabase.from("sales").insert({
-        date: newSale.date,
-        time: newSale.time,
-        total_amount: newSale.totalAmount,
-        cash_amount: newSale.cashAmount,
-        upi_amount: newSale.upiAmount,
-        card_amount: newSale.cardAmount,
-        customer_count: newSale.customerCount,
-        packaging_type: newSale.packagingType,
-        packaging_cost: newSale.packagingCost,
-        cogs: newSale.cogs,
-        items: newSale.items,
-        notes: newSale.notes,
-      });
-    } catch (err) {
-      console.warn("Supabase sale insert warning:", err);
-    }
+    // Push immediately to Supabase Cloud
+    await pushToCloudConfig({
+      ...latestStateRef.current,
+      sales: nextSales,
+      inventory: nextInv,
+    });
 
     return newSale;
-  }, [inventory, pushToCloudConfig]);
+  }, [pushToCloudConfig]);
 
   const deleteSale = useCallback(async (id) => {
-    setSales((prev) => {
-      const updated = prev.filter((s) => s.id !== id);
-      pushToCloudConfig({
-        ...latestStateRef.current,
-        sales: updated,
-      });
-      return updated;
+    const nextSales = latestStateRef.current.sales.filter((s) => s.id !== id);
+    setSales(nextSales);
+    await pushToCloudConfig({
+      ...latestStateRef.current,
+      sales: nextSales,
     });
-    try { await supabase.from("sales").delete().eq("id", id); } catch (e) {}
   }, [pushToCloudConfig]);
 
   /* ======== EXPENSES & BILL MANAGEMENT ======== */
@@ -429,80 +373,53 @@ export function DataProvider({ children }) {
       createdAt: new Date().toISOString(),
     };
 
-    let updatedInventory = inventory;
+    let nextInv = { ...latestStateRef.current.inventory };
     if (itemKey && itemQty > 0) {
-      setInventory((prevInv) => {
-        const target = prevInv[itemKey] || { name: itemKey, stock: 0, unit: "g", costPerUnit: 0 };
-        const newStock = (target.stock || 0) + itemQty;
-        const newUnitCost = amount / itemQty;
-        const nextInv = {
-          ...prevInv,
-          [itemKey]: {
-            ...target,
-            stock: newStock,
-            costPerUnit: Math.round(newUnitCost * 100) / 100,
-          },
-        };
-        updatedInventory = nextInv;
-        return nextInv;
-      });
+      const target = nextInv[itemKey] || { name: itemKey, stock: 0, unit: "g", costPerUnit: 0 };
+      const newStock = (target.stock || 0) + itemQty;
+      const newUnitCost = amount / itemQty;
+      nextInv[itemKey] = {
+        ...target,
+        stock: newStock,
+        costPerUnit: Math.round(newUnitCost * 100) / 100,
+      };
+      setInventory(nextInv);
     }
 
-    setExpenses((prev) => {
-      const updated = mergeById(prev, [newExpense]);
-      pushToCloudConfig({
-        ...latestStateRef.current,
-        expenses: updated,
-        inventory: updatedInventory,
-      });
-      return updated;
+    const nextExpenses = [newExpense, ...latestStateRef.current.expenses];
+    setExpenses(nextExpenses);
+
+    await pushToCloudConfig({
+      ...latestStateRef.current,
+      expenses: nextExpenses,
+      inventory: nextInv,
     });
-
-    try {
-      await supabase.from("expenses").insert({
-        description: newExpense.title,
-        amount: newExpense.amount,
-        category_id: newExpense.categoryId,
-        date: newExpense.date,
-        receipt_url: newExpense.receiptImage,
-        inventory_key: newExpense.inventoryKey,
-        item_qty: newExpense.itemQty,
-        notes: newExpense.notes,
-      });
-    } catch (err) {
-      console.warn("Supabase expense insert warning:", err);
-    }
 
     return newExpense;
-  }, [inventory, pushToCloudConfig]);
+  }, [pushToCloudConfig]);
 
   const deleteExpense = useCallback(async (id) => {
-    setExpenses((prev) => {
-      const updated = prev.filter((e) => e.id !== id);
-      pushToCloudConfig({
-        ...latestStateRef.current,
-        expenses: updated,
-      });
-      return updated;
+    const nextExpenses = latestStateRef.current.expenses.filter((e) => e.id !== id);
+    setExpenses(nextExpenses);
+    await pushToCloudConfig({
+      ...latestStateRef.current,
+      expenses: nextExpenses,
     });
-    try { await supabase.from("expenses").delete().eq("id", id); } catch (e) {}
   }, [pushToCloudConfig]);
 
   /* ======== INVENTORY MANAGEMENT ======== */
   const updateInventoryItem = useCallback((key, updates) => {
-    setInventory((prev) => {
-      const nextInv = {
-        ...prev,
-        [key]: {
-          ...(prev[key] || { key, name: key, stock: 0, unit: "g", costPerUnit: 0 }),
-          ...updates,
-        },
-      };
-      pushToCloudConfig({
-        ...latestStateRef.current,
-        inventory: nextInv,
-      });
-      return nextInv;
+    const nextInv = {
+      ...latestStateRef.current.inventory,
+      [key]: {
+        ...(latestStateRef.current.inventory[key] || { key, name: key, stock: 0, unit: "g", costPerUnit: 0 }),
+        ...updates,
+      },
+    };
+    setInventory(nextInv);
+    pushToCloudConfig({
+      ...latestStateRef.current,
+      inventory: nextInv,
     });
   }, [pushToCloudConfig]);
 
@@ -520,39 +437,23 @@ export function DataProvider({ children }) {
       createdAt: new Date().toISOString(),
     };
 
-    setWastage((prev) => {
-      const updated = mergeById(prev, [newWaste]);
-      pushToCloudConfig({
-        ...latestStateRef.current,
-        wastage: updated,
-      });
-      return updated;
-    });
+    const nextWastage = [newWaste, ...latestStateRef.current.wastage];
+    setWastage(nextWastage);
 
-    try {
-      await supabase.from("wastage").insert({
-        date: newWaste.date,
-        item_name: newWaste.itemName,
-        quantity: newWaste.quantity,
-        unit: newWaste.unit,
-        estimated_cost: newWaste.estimatedCost,
-        reason: newWaste.reason,
-        notes: newWaste.notes,
-      });
-    } catch (e) {}
+    await pushToCloudConfig({
+      ...latestStateRef.current,
+      wastage: nextWastage,
+    });
     return newWaste;
   }, [pushToCloudConfig]);
 
   const deleteWastage = useCallback(async (id) => {
-    setWastage((prev) => {
-      const updated = prev.filter((w) => w.id !== id);
-      pushToCloudConfig({
-        ...latestStateRef.current,
-        wastage: updated,
-      });
-      return updated;
+    const nextWastage = latestStateRef.current.wastage.filter((w) => w.id !== id);
+    setWastage(nextWastage);
+    await pushToCloudConfig({
+      ...latestStateRef.current,
+      wastage: nextWastage,
     });
-    try { await supabase.from("wastage").delete().eq("id", id); } catch (e) {}
   }, [pushToCloudConfig]);
 
   /* ======== CASH CLOSURES ======== */
@@ -571,28 +472,13 @@ export function DataProvider({ children }) {
       createdAt: new Date().toISOString(),
     };
 
-    setClosures((prev) => {
-      const updated = mergeById(prev, [newClosure]);
-      pushToCloudConfig({
-        ...latestStateRef.current,
-        closures: updated,
-      });
-      return updated;
-    });
+    const nextClosures = [newClosure, ...latestStateRef.current.closures];
+    setClosures(nextClosures);
 
-    try {
-      await supabase.from("closures").insert({
-        date: newClosure.date,
-        opening_cash: newClosure.openingCash,
-        total_cash_sales: newClosure.totalCashSales,
-        total_cash_expenses: newClosure.totalCashExpenses,
-        expected_cash: newClosure.expectedCash,
-        actual_cash: newClosure.actualCash,
-        difference: newClosure.difference,
-        staff_name: newClosure.staffName,
-        notes: newClosure.notes,
-      });
-    } catch (e) {}
+    await pushToCloudConfig({
+      ...latestStateRef.current,
+      closures: nextClosures,
+    });
     return newClosure;
   }, [pushToCloudConfig]);
 
@@ -606,36 +492,31 @@ export function DataProvider({ children }) {
       balanceDue: parseFloat(vendorData.balanceDue || 0),
       notes: vendorData.notes || "",
     };
-    setVendors((prev) => {
-      const updated = mergeById(prev, [newVendor]);
-      pushToCloudConfig({
-        ...latestStateRef.current,
-        vendors: updated,
-      });
-      return updated;
+    const nextVendors = [newVendor, ...latestStateRef.current.vendors];
+    setVendors(nextVendors);
+
+    pushToCloudConfig({
+      ...latestStateRef.current,
+      vendors: nextVendors,
     });
     return newVendor;
   }, [pushToCloudConfig]);
 
   const updateVendor = useCallback((id, updates) => {
-    setVendors((prev) => {
-      const updated = prev.map((v) => (v.id === id ? { ...v, ...updates } : v));
-      pushToCloudConfig({
-        ...latestStateRef.current,
-        vendors: updated,
-      });
-      return updated;
+    const nextVendors = latestStateRef.current.vendors.map((v) => (v.id === id ? { ...v, ...updates } : v));
+    setVendors(nextVendors);
+    pushToCloudConfig({
+      ...latestStateRef.current,
+      vendors: nextVendors,
     });
   }, [pushToCloudConfig]);
 
   const deleteVendor = useCallback((id) => {
-    setVendors((prev) => {
-      const updated = prev.filter((v) => v.id !== id);
-      pushToCloudConfig({
-        ...latestStateRef.current,
-        vendors: updated,
-      });
-      return updated;
+    const nextVendors = latestStateRef.current.vendors.filter((v) => v.id !== id);
+    setVendors(nextVendors);
+    pushToCloudConfig({
+      ...latestStateRef.current,
+      vendors: nextVendors,
     });
   }, [pushToCloudConfig]);
 
@@ -651,36 +532,31 @@ export function DataProvider({ children }) {
       stock: parseInt(skuData.stock || 100),
       unit: skuData.unit || "bowl",
     };
-    setSkus((prev) => {
-      const updated = mergeById(prev, [newSku]);
-      pushToCloudConfig({
-        ...latestStateRef.current,
-        skus: updated,
-      });
-      return updated;
+    const nextSkus = [...latestStateRef.current.skus, newSku];
+    setSkus(nextSkus);
+
+    pushToCloudConfig({
+      ...latestStateRef.current,
+      skus: nextSkus,
     });
     return newSku;
   }, [pushToCloudConfig]);
 
   const updateSku = useCallback((id, updates) => {
-    setSkus((prev) => {
-      const updated = prev.map((s) => (s.id === id ? { ...s, ...updates } : s));
-      pushToCloudConfig({
-        ...latestStateRef.current,
-        skus: updated,
-      });
-      return updated;
+    const nextSkus = latestStateRef.current.skus.map((s) => (s.id === id ? { ...s, ...updates } : s));
+    setSkus(nextSkus);
+    pushToCloudConfig({
+      ...latestStateRef.current,
+      skus: nextSkus,
     });
   }, [pushToCloudConfig]);
 
   const deleteSku = useCallback((id) => {
-    setSkus((prev) => {
-      const updated = prev.filter((s) => s.id !== id);
-      pushToCloudConfig({
-        ...latestStateRef.current,
-        skus: updated,
-      });
-      return updated;
+    const nextSkus = latestStateRef.current.skus.filter((s) => s.id !== id);
+    setSkus(nextSkus);
+    pushToCloudConfig({
+      ...latestStateRef.current,
+      skus: nextSkus,
     });
   }, [pushToCloudConfig]);
 
