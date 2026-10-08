@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "./AuthContext";
 
@@ -143,6 +143,22 @@ const saveLocal = (key, data) => {
   }
 };
 
+/* Helper to merge items by id without duplicates */
+const mergeById = (existing = [], incoming = []) => {
+  const map = new Map();
+  existing.forEach((item) => {
+    if (item && item.id) map.set(item.id, item);
+  });
+  incoming.forEach((item) => {
+    if (item && item.id) map.set(item.id, item);
+  });
+  return Array.from(map.values()).sort((a, b) => {
+    const da = a.createdAt || a.date || "";
+    const db = b.createdAt || b.date || "";
+    return db.localeCompare(da);
+  });
+};
+
 export function DataProvider({ children }) {
   const { user } = useAuth();
   
@@ -157,6 +173,12 @@ export function DataProvider({ children }) {
   const [categories] = useState(STALL_EXPENSE_CATEGORIES);
   const [dataLoading, setDataLoading] = useState(false);
 
+  // Keep ref of latest state to push full payload easily
+  const latestStateRef = useRef({ sales, expenses, wastage, closures });
+  useEffect(() => {
+    latestStateRef.current = { sales, expenses, wastage, closures };
+  }, [sales, expenses, wastage, closures]);
+
   // Sync state changes to LocalStorage
   useEffect(() => saveLocal("sales", sales), [sales]);
   useEffect(() => saveLocal("expenses", expenses), [expenses]);
@@ -166,18 +188,58 @@ export function DataProvider({ children }) {
   useEffect(() => saveLocal("skus", skus), [skus]);
   useEffect(() => saveLocal("inventory", inventory), [inventory]);
 
+  /* Push full data payload to stall_config.staff_list in Supabase Cloud */
+  const pushToCloudConfig = useCallback(async (customPayload) => {
+    try {
+      const stateToPush = customPayload || latestStateRef.current;
+      await supabase.from("stall_config").upsert({
+        id: "default_stall",
+        staff_list: {
+          sales: stateToPush.sales || [],
+          expenses: stateToPush.expenses || [],
+          wastage: stateToPush.wastage || [],
+          closures: stateToPush.closures || [],
+          updatedAt: new Date().toISOString(),
+        },
+      });
+    } catch (err) {
+      console.warn("Cloud push warning:", err);
+    }
+  }, []);
+
   // Real-time Supabase Data Fetching & Polling across all devices
   const fetchFromSupabase = useCallback(async () => {
     try {
-      const [expRes, saleRes, wasteRes, closureRes] = await Promise.all([
+      // 1. Fetch primary stall_config JSON cloud payload
+      const configRes = await supabase.from("stall_config").select("*").eq("id", "default_stall");
+      if (configRes.data && configRes.data.length > 0) {
+        const cloudData = configRes.data[0].staff_list;
+        if (cloudData && typeof cloudData === "object" && !Array.isArray(cloudData)) {
+          if (Array.isArray(cloudData.sales)) {
+            setSales((prev) => mergeById(prev, cloudData.sales));
+          }
+          if (Array.isArray(cloudData.expenses)) {
+            setExpenses((prev) => mergeById(prev, cloudData.expenses));
+          }
+          if (Array.isArray(cloudData.wastage)) {
+            setWastage((prev) => mergeById(prev, cloudData.wastage));
+          }
+          if (Array.isArray(cloudData.closures)) {
+            setClosures((prev) => mergeById(prev, cloudData.closures));
+          }
+        }
+      }
+
+      // 2. Also query individual tables if they exist
+      const [expRes, saleRes, wasteRes, closureRes] = await Promise.allSettled([
         supabase.from("expenses").select("*").order("date", { ascending: false }),
         supabase.from("sales").select("*").order("date", { ascending: false }),
         supabase.from("wastage").select("*").order("date", { ascending: false }),
         supabase.from("closures").select("*").order("date", { ascending: false }),
       ]);
 
-      if (expRes.data && expRes.data.length > 0) {
-        setExpenses(expRes.data.map(r => ({
+      if (expRes.status === "fulfilled" && expRes.value?.data?.length > 0) {
+        const mappedExps = expRes.value.data.map(r => ({
           id: r.id,
           categoryId: r.category_id || "cat-miscellaneous",
           title: r.description || r.title || "Expense",
@@ -190,11 +252,12 @@ export function DataProvider({ children }) {
           itemQty: r.item_qty ? parseFloat(r.item_qty) : null,
           notes: r.notes || "",
           createdAt: r.created_at,
-        })));
+        }));
+        setExpenses((prev) => mergeById(prev, mappedExps));
       }
 
-      if (saleRes.data && saleRes.data.length > 0) {
-        setSales(saleRes.data.map(r => ({
+      if (saleRes.status === "fulfilled" && saleRes.value?.data?.length > 0) {
+        const mappedSales = saleRes.value.data.map(r => ({
           id: r.id,
           date: r.date,
           time: r.time || "12:00",
@@ -209,11 +272,12 @@ export function DataProvider({ children }) {
           items: r.items || [],
           notes: r.notes || "",
           createdAt: r.created_at,
-        })));
+        }));
+        setSales((prev) => mergeById(prev, mappedSales));
       }
 
-      if (wasteRes.data && wasteRes.data.length > 0) {
-        setWastage(wasteRes.data.map(r => ({
+      if (wasteRes.status === "fulfilled" && wasteRes.value?.data?.length > 0) {
+        const mappedWastage = wasteRes.value.data.map(r => ({
           id: r.id,
           date: r.date,
           itemName: r.item_name,
@@ -223,11 +287,12 @@ export function DataProvider({ children }) {
           reason: r.reason || "Spoiled",
           notes: r.notes || "",
           createdAt: r.created_at,
-        })));
+        }));
+        setWastage((prev) => mergeById(prev, mappedWastage));
       }
 
-      if (closureRes.data && closureRes.data.length > 0) {
-        setClosures(closureRes.data.map(r => ({
+      if (closureRes.status === "fulfilled" && closureRes.value?.data?.length > 0) {
+        const mappedClosures = closureRes.value.data.map(r => ({
           id: r.id,
           date: r.date,
           openingCash: parseFloat(r.opening_cash || 0),
@@ -239,7 +304,8 @@ export function DataProvider({ children }) {
           staffName: r.staff_name || "",
           notes: r.notes || "",
           createdAt: r.created_at,
-        })));
+        }));
+        setClosures((prev) => mergeById(prev, mappedClosures));
       }
     } catch (err) {
       console.warn("Supabase fetch warning:", err);
@@ -250,10 +316,10 @@ export function DataProvider({ children }) {
 
   useEffect(() => {
     fetchFromSupabase();
-    // 8-second interval polling for real-time Phone <-> PC sync
+    // 3-second interval polling for real-time Phone <-> PC sync
     const interval = setInterval(() => {
       fetchFromSupabase();
-    }, 8000);
+    }, 3000);
     return () => clearInterval(interval);
   }, [fetchFromSupabase]);
 
@@ -272,13 +338,11 @@ export function DataProvider({ children }) {
 
     // Calculate ingredient & packaging consumption & COGS
     let calculatedCogs = 0;
-    const stockDeductions = {}; // key -> qty to deduct
+    const stockDeductions = {};
 
-    // 1. Bowl Recipes & Addons
     items.forEach((item) => {
       const qty = item.qty || 1;
       const recipeKey = item.id || item.code || item.name;
-      // Match recipe by SKU ID or code or name
       let recipe = RECIPES[recipeKey];
       if (!recipe) {
         const lowerName = (item.name || "").toLowerCase();
@@ -296,7 +360,6 @@ export function DataProvider({ children }) {
       }
     });
 
-    // 2. Packaging items deduction
     const packRate = PACKAGING_RATES[packagingType] || PACKAGING_RATES.dine_in;
     if (totalBowls > 0) {
       packRate.items.forEach((pItem) => {
@@ -305,7 +368,6 @@ export function DataProvider({ children }) {
       });
     }
 
-    // Apply stock deductions to inventory & compute total COGS
     setInventory((prevInv) => {
       const nextInv = { ...prevInv };
       Object.entries(stockDeductions).forEach(([key, qtyDeducted]) => {
@@ -339,9 +401,16 @@ export function DataProvider({ children }) {
       createdAt: new Date().toISOString(),
     };
 
-    setSales((prev) => [newSale, ...prev]);
+    setSales((prev) => {
+      const updated = mergeById(prev, [newSale]);
+      pushToCloudConfig({
+        ...latestStateRef.current,
+        sales: updated,
+      });
+      return updated;
+    });
 
-    // Always push to Supabase Cloud for universal Phone <-> PC sync
+    // Also attempt individual table insert
     try {
       await supabase.from("sales").insert({
         date: newSale.date,
@@ -362,12 +431,19 @@ export function DataProvider({ children }) {
     }
 
     return newSale;
-  }, []);
+  }, [pushToCloudConfig]);
 
   const deleteSale = useCallback(async (id) => {
-    setSales((prev) => prev.filter((s) => s.id !== id));
+    setSales((prev) => {
+      const updated = prev.filter((s) => s.id !== id);
+      pushToCloudConfig({
+        ...latestStateRef.current,
+        sales: updated,
+      });
+      return updated;
+    });
     try { await supabase.from("sales").delete().eq("id", id); } catch (e) {}
-  }, []);
+  }, [pushToCloudConfig]);
 
   /* ======== EXPENSES & BILL MANAGEMENT ======== */
   const addExpense = useCallback(async (expData) => {
@@ -390,9 +466,6 @@ export function DataProvider({ children }) {
       createdAt: new Date().toISOString(),
     };
 
-    setExpenses((prev) => [newExpense, ...prev]);
-
-    // If an inventory key and quantity are specified, update inventory stock and unit cost
     if (itemKey && itemQty > 0) {
       setInventory((prevInv) => {
         const target = prevInv[itemKey] || { name: itemKey, stock: 0, unit: "g", costPerUnit: 0 };
@@ -408,6 +481,15 @@ export function DataProvider({ children }) {
         };
       });
     }
+
+    setExpenses((prev) => {
+      const updated = mergeById(prev, [newExpense]);
+      pushToCloudConfig({
+        ...latestStateRef.current,
+        expenses: updated,
+      });
+      return updated;
+    });
 
     try {
       await supabase.from("expenses").insert({
@@ -425,12 +507,19 @@ export function DataProvider({ children }) {
     }
 
     return newExpense;
-  }, []);
+  }, [pushToCloudConfig]);
 
   const deleteExpense = useCallback(async (id) => {
-    setExpenses((prev) => prev.filter((e) => e.id !== id));
+    setExpenses((prev) => {
+      const updated = prev.filter((e) => e.id !== id);
+      pushToCloudConfig({
+        ...latestStateRef.current,
+        expenses: updated,
+      });
+      return updated;
+    });
     try { await supabase.from("expenses").delete().eq("id", id); } catch (e) {}
-  }, []);
+  }, [pushToCloudConfig]);
 
   /* ======== INVENTORY MANAGEMENT ======== */
   const updateInventoryItem = useCallback((key, updates) => {
@@ -456,7 +545,16 @@ export function DataProvider({ children }) {
       notes: wasteData.notes || "",
       createdAt: new Date().toISOString(),
     };
-    setWastage((prev) => [newWaste, ...prev]);
+
+    setWastage((prev) => {
+      const updated = mergeById(prev, [newWaste]);
+      pushToCloudConfig({
+        ...latestStateRef.current,
+        wastage: updated,
+      });
+      return updated;
+    });
+
     try {
       await supabase.from("wastage").insert({
         date: newWaste.date,
@@ -469,12 +567,19 @@ export function DataProvider({ children }) {
       });
     } catch (e) {}
     return newWaste;
-  }, []);
+  }, [pushToCloudConfig]);
 
   const deleteWastage = useCallback(async (id) => {
-    setWastage((prev) => prev.filter((w) => w.id !== id));
+    setWastage((prev) => {
+      const updated = prev.filter((w) => w.id !== id);
+      pushToCloudConfig({
+        ...latestStateRef.current,
+        wastage: updated,
+      });
+      return updated;
+    });
     try { await supabase.from("wastage").delete().eq("id", id); } catch (e) {}
-  }, []);
+  }, [pushToCloudConfig]);
 
   /* ======== CASH CLOSURES ======== */
   const addClosure = useCallback(async (closureData) => {
@@ -491,7 +596,16 @@ export function DataProvider({ children }) {
       notes: closureData.notes || "",
       createdAt: new Date().toISOString(),
     };
-    setClosures((prev) => [newClosure, ...prev]);
+
+    setClosures((prev) => {
+      const updated = mergeById(prev, [newClosure]);
+      pushToCloudConfig({
+        ...latestStateRef.current,
+        closures: updated,
+      });
+      return updated;
+    });
+
     try {
       await supabase.from("closures").insert({
         date: newClosure.date,
@@ -506,7 +620,7 @@ export function DataProvider({ children }) {
       });
     } catch (e) {}
     return newClosure;
-  }, []);
+  }, [pushToCloudConfig]);
 
   /* ======== VENDOR MANAGEMENT ======== */
   const addVendor = useCallback((vendorData) => {
@@ -560,7 +674,7 @@ export function DataProvider({ children }) {
     return found || { id, name: id || "Miscellaneous", icon: "🧾", color: "#64748b" };
   }, [categories]);
 
-  const resetStallData = useCallback(() => {
+  const resetStallData = useCallback(async () => {
     setSales([]);
     setExpenses([]);
     setWastage([]);
@@ -577,7 +691,8 @@ export function DataProvider({ children }) {
       localStorage.removeItem("stall_app_skus");
       localStorage.removeItem("stall_app_inventory");
     }
-  }, []);
+    await pushToCloudConfig({ sales: [], expenses: [], wastage: [], closures: [] });
+  }, [pushToCloudConfig]);
 
   const value = {
     sales,
