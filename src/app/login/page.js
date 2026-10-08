@@ -21,6 +21,9 @@ export default function LoginPage() {
     setSubmitting(false);
     if (res.success) {
       router.push("/");
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      }
     } else {
       setError(res.error);
     }

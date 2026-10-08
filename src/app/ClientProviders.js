@@ -46,12 +46,15 @@ function AuthGate({ children }) {
   // RESTRICTED EMPLOYEE ROUTE GUARD
   const isManagerRoute = pathname !== "/sales";
   if (role === "employee" && isManagerRoute) {
-    const handleUnlock = () => {
+    const handleUnlock = async () => {
       const pin = prompt("Enter Manager Master PIN to access this page (Default: 1234):");
       if (!pin) return;
-      const res = loginAsManager(pin);
+      const res = await loginAsManager(pin);
       if (res.success) {
         alert("✅ Manager Access Granted!");
+        if (typeof window !== "undefined") {
+          window.location.reload();
+        }
       } else {
         alert(res.error);
       }

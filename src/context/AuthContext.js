@@ -133,9 +133,12 @@ export function AuthProvider({ children }) {
   }, [role, activeStaff]);
 
   /* ======== AUTH & ROLE METHODS ======== */
-  const loginAsManager = async (pin) => {
+  const loginAsManager = async (rawPin) => {
+    const pin = (rawPin || "").toString().trim();
+    const currentPin = (managerPin || "1234").toString().trim();
+
     // 1. Check local state first
-    if (pin === managerPin) {
+    if (pin === currentPin) {
       setRole("manager");
       setActiveStaff(null);
       return { success: true };
@@ -150,16 +153,17 @@ export function AuthProvider({ children }) {
         .maybeSingle();
 
       if (data) {
+        const cloudPin = (data.manager_pin || "1234").toString().trim();
         if (data.manager_pin) {
-          setManagerPin(data.manager_pin);
-          if (typeof window !== "undefined") localStorage.setItem("stall_manager_pin", data.manager_pin);
+          setManagerPin(cloudPin);
+          if (typeof window !== "undefined") localStorage.setItem("stall_manager_pin", cloudPin);
         }
         if (data.staff_list && Array.isArray(data.staff_list)) {
           setStaffList(data.staff_list);
           if (typeof window !== "undefined") localStorage.setItem("stall_staff_list", JSON.stringify(data.staff_list));
         }
 
-        if (pin === data.manager_pin) {
+        if (pin === cloudPin) {
           setRole("manager");
           setActiveStaff(null);
           return { success: true };
@@ -173,8 +177,13 @@ export function AuthProvider({ children }) {
   };
 
   const loginAsEmployee = async (codeOrPin) => {
+    const cleanInput = (codeOrPin || "").toString().trim().toLowerCase();
+
     // 1. Check local state first
-    let staff = staffList.find(s => s.pin === codeOrPin || s.code.toLowerCase() === codeOrPin.toLowerCase());
+    let staff = staffList.find(s => 
+      (s.pin || "").toString().trim() === cleanInput || 
+      (s.code || "").toString().trim().toLowerCase() === cleanInput
+    );
 
     // 2. If not found in local memory, fetch latest staff accounts from Supabase cloud!
     if (!staff) {
@@ -189,7 +198,10 @@ export function AuthProvider({ children }) {
           if (data.staff_list && Array.isArray(data.staff_list)) {
             setStaffList(data.staff_list);
             if (typeof window !== "undefined") localStorage.setItem("stall_staff_list", JSON.stringify(data.staff_list));
-            staff = data.staff_list.find(s => s.pin === codeOrPin || s.code.toLowerCase() === codeOrPin.toLowerCase());
+            staff = data.staff_list.find(s => 
+              (s.pin || "").toString().trim() === cleanInput || 
+              (s.code || "").toString().trim().toLowerCase() === cleanInput
+            );
           }
           if (data.manager_pin) {
             setManagerPin(data.manager_pin);
