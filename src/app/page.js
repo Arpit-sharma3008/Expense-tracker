@@ -21,27 +21,26 @@ export default function StallDashboard() {
 
   /* ---- Calculated Financial Stats ---- */
   const stats = useMemo(() => {
-    // Today's stats
-    const todaySales = sales.filter((s) => s.date === todayStr);
-    const todayExpenses = expenses.filter((e) => e.date === todayStr);
-    const todayWastage = wastage.filter((w) => w.date === todayStr);
+    const todaySales = (sales || []).filter((s) => s && s.date === todayStr);
+    const todayExpenses = (expenses || []).filter((e) => e && e.date === todayStr);
+    const todayWastage = (wastage || []).filter((w) => w && w.date === todayStr);
 
-    const todayRev = todaySales.reduce((s, x) => s + x.totalAmount, 0);
-    const todayExp = todayExpenses.reduce((s, x) => s + x.amount, 0);
-    const todayWaste = todayWastage.reduce((s, x) => s + x.estimatedCost, 0);
+    const todayRev = todaySales.reduce((s, x) => s + (parseFloat(x?.totalAmount) || 0), 0);
+    const todayExp = todayExpenses.reduce((s, x) => s + (parseFloat(x?.amount) || 0), 0);
+    const todayWaste = todayWastage.reduce((s, x) => s + (parseFloat(x?.estimatedCost) || 0), 0);
     const todayNet = todayRev - todayExp - todayWaste;
 
-    // Total ऑल-time / Month Stats
-    const totalRev = sales.reduce((s, x) => s + x.totalAmount, 0);
-    const totalExp = expenses.reduce((s, x) => s + x.amount, 0);
-    const totalWaste = wastage.reduce((s, x) => s + x.estimatedCost, 0);
+    // Total All-time Stats
+    const totalRev = (sales || []).reduce((s, x) => s + (parseFloat(x?.totalAmount) || 0), 0);
+    const totalExp = (expenses || []).reduce((s, x) => s + (parseFloat(x?.amount) || 0), 0);
+    const totalWaste = (wastage || []).reduce((s, x) => s + (parseFloat(x?.estimatedCost) || 0), 0);
     const netProfit = totalRev - totalExp - totalWaste;
     const margin = totalRev > 0 ? (netProfit / totalRev) * 100 : 0;
 
     // Payment Mode Split
-    const cashTotal = sales.reduce((s, x) => s + (x.cashAmount || 0), 0);
-    const upiTotal = sales.reduce((s, x) => s + (x.upiAmount || 0), 0);
-    const cardTotal = sales.reduce((s, x) => s + (x.cardAmount || 0), 0);
+    const cashTotal = (sales || []).reduce((s, x) => s + (parseFloat(x?.cashAmount) || 0), 0);
+    const upiTotal = (sales || []).reduce((s, x) => s + (parseFloat(x?.upiAmount) || 0), 0);
+    const cardTotal = (sales || []).reduce((s, x) => s + (parseFloat(x?.cardAmount) || 0), 0);
 
     return {
       todayRev, todayExp, todayWaste, todayNet,
@@ -68,9 +67,9 @@ export default function StallDashboard() {
       const dateKey = d.toISOString().split("T")[0];
       const dayName = `${d.getDate()}/${d.getMonth() + 1}`;
 
-      const dayRev = sales.filter(s => s.date === dateKey).reduce((s, x) => s + x.totalAmount, 0);
-      const dayExp = expenses.filter(e => e.date === dateKey).reduce((s, x) => s + x.amount, 0);
-      const dayWaste = wastage.filter(w => w.date === dateKey).reduce((s, x) => s + x.estimatedCost, 0);
+      const dayRev = (sales || []).filter(s => s && s.date === dateKey).reduce((s, x) => s + (parseFloat(x?.totalAmount) || 0), 0);
+      const dayExp = (expenses || []).filter(e => e && e.date === dateKey).reduce((s, x) => s + (parseFloat(x?.amount) || 0), 0);
+      const dayWaste = (wastage || []).filter(w => w && w.date === dateKey).reduce((s, x) => s + (parseFloat(x?.estimatedCost) || 0), 0);
       const dayNet = dayRev - dayExp - dayWaste;
 
       days.push({
@@ -87,13 +86,20 @@ export default function StallDashboard() {
   /* ---- Category Expense Breakdown ---- */
   const categoryData = useMemo(() => {
     const map = {};
-    expenses.forEach((e) => {
-      map[e.categoryId] = (map[e.categoryId] || 0) + e.amount;
+    (expenses || []).forEach((e) => {
+      if (e && e.categoryId) {
+        map[e.categoryId] = (map[e.categoryId] || 0) + (parseFloat(e.amount) || 0);
+      }
     });
     return Object.entries(map)
       .map(([id, total]) => {
-        const cat = getCategoryById(id);
-        return { name: cat.name, value: Math.round(total), color: cat.color, icon: cat.icon };
+        const cat = getCategoryById ? getCategoryById(id) : null;
+        return { 
+          name: cat?.name || id || "Miscellaneous", 
+          value: Math.round(total), 
+          color: cat?.color || "#64748b", 
+          icon: cat?.icon || "🧾" 
+        };
       })
       .sort((a, b) => b.value - a.value);
   }, [expenses, getCategoryById]);
@@ -101,12 +107,12 @@ export default function StallDashboard() {
   // Latest activity combined
   const recentActivities = useMemo(() => {
     const combined = [
-      ...sales.map(s => ({ type: "sale", title: `Sales Entry (${s.items?.length || 'Quick'} items)`, amount: s.totalAmount, date: s.date, time: s.time, icon: "🛒", color: "#10b981" })),
-      ...expenses.map(e => ({ type: "expense", title: e.title, amount: e.amount, date: e.date, time: "Bill", icon: "🧾", color: "#ef4444" })),
-      ...wastage.map(w => ({ type: "wastage", title: `Wastage: ${w.itemName}`, amount: w.estimatedCost, date: w.date, time: "Waste", icon: "🗑️", color: "#f59e0b" })),
+      ...(sales || []).map(s => ({ type: "sale", title: `Sales Entry (${s?.items?.length || 'Quick'} items)`, amount: parseFloat(s?.totalAmount) || 0, date: s?.date || todayStr, time: s?.time || "12:00", icon: "🛒", color: "#10b981" })),
+      ...(expenses || []).map(e => ({ type: "expense", title: e?.title || "Expense", amount: parseFloat(e?.amount) || 0, date: e?.date || todayStr, time: "Bill", icon: "🧾", color: "#ef4444" })),
+      ...(wastage || []).map(w => ({ type: "wastage", title: `Wastage: ${w?.itemName || 'Item'}`, amount: parseFloat(w?.estimatedCost) || 0, date: w?.date || todayStr, time: "Waste", icon: "🗑️", color: "#f59e0b" })),
     ];
     return combined.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 7);
-  }, [sales, expenses, wastage]);
+  }, [sales, expenses, wastage, todayStr]);
 
   return (
     <>
