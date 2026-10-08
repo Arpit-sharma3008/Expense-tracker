@@ -26,8 +26,45 @@ export default function SalesPage() {
   const [summaryCustomers, setSummaryCustomers] = useState("1");
   const [summaryDate, setSummaryDate] = useState(new Date().toISOString().split("T")[0]);
   const [summaryNotes, setSummaryNotes] = useState("");
+  const [bulkQuantities, setBulkQuantities] = useState({}); // { [skuId]: number }
+  const [bulkPackagingType, setBulkPackagingType] = useState("dine_in");
 
   const formatCurrency = (v) => `₹${Math.round(v).toLocaleString("en-IN")}`;
+
+  /* ---- Bulk Menu Quantity Calculations ---- */
+  const bulkCalculatedTotal = useMemo(() => {
+    let sum = 0;
+    Object.entries(bulkQuantities).forEach(([skuId, qty]) => {
+      const sku = skus.find((s) => s.id === skuId);
+      if (sku && qty > 0) {
+        sum += sku.price * qty;
+      }
+    });
+    return sum;
+  }, [bulkQuantities, skus]);
+
+  const bulkTotalQty = useMemo(() => {
+    return Object.values(bulkQuantities).reduce((a, b) => a + (parseInt(b) || 0), 0);
+  }, [bulkQuantities]);
+
+  const updateBulkQty = (skuId, val) => {
+    const qty = Math.max(0, parseInt(val) || 0);
+    setBulkQuantities((prev) => {
+      const next = { ...prev, [skuId]: qty };
+      let newTotal = 0;
+      let newCount = 0;
+      Object.entries(next).forEach(([id, q]) => {
+        const s = skus.find((item) => item.id === id);
+        if (s && q > 0) {
+          newTotal += s.price * q;
+          newCount += q;
+        }
+      });
+      if (newTotal > 0) setSummaryTotal(newTotal.toString());
+      if (newCount > 0) setSummaryCustomers(newCount.toString());
+      return next;
+    });
+  };
 
   /* ---- POS Helpers ---- */
   const addToCart = (sku) => {
@@ -95,12 +132,29 @@ export default function SalesPage() {
   /* ---- Summary Entry Submit ---- */
   const handleSummarySubmit = async (e) => {
     e.preventDefault();
-    const total = parseFloat(summaryTotal) || 0;
+    const total = parseFloat(summaryTotal) || bulkCalculatedTotal || 0;
     const cash = parseFloat(summaryCash) || 0;
     const upi = parseFloat(summaryUpi) || 0;
     const card = parseFloat(summaryCard) || 0;
 
-    if (total <= 0) return alert("Please enter a valid total sales amount.");
+    if (total <= 0) return alert("Please enter sales total or select menu item quantities.");
+
+    const bulkItems = [];
+    Object.entries(bulkQuantities).forEach(([skuId, qty]) => {
+      if (qty > 0) {
+        const sku = skus.find((s) => s.id === skuId);
+        if (sku) {
+          bulkItems.push({
+            id: sku.id,
+            skuId: sku.id,
+            name: sku.name,
+            price: sku.price,
+            category: sku.category,
+            qty,
+          });
+        }
+      }
+    });
 
     let finalCash = cash, finalUpi = upi, finalCard = card;
     if (cash === 0 && upi === 0 && card === 0) {
@@ -114,8 +168,9 @@ export default function SalesPage() {
       cashAmount: finalCash,
       upiAmount: finalUpi,
       cardAmount: finalCard,
-      customerCount: parseInt(summaryCustomers) || 1,
-      items: [],
+      customerCount: parseInt(summaryCustomers) || (bulkTotalQty || 1),
+      packagingType: bulkPackagingType,
+      items: bulkItems,
       notes: summaryNotes,
     });
 
@@ -124,7 +179,8 @@ export default function SalesPage() {
     setSummaryUpi("");
     setSummaryCard("");
     setSummaryNotes("");
-    alert("✅ Daily Summary Sale Recorded!");
+    setBulkQuantities({});
+    alert("✅ Bulk Menu Sales Recorded & Raw Material Stock Deducted!");
   };
 
   const scrollToCart = () => {
@@ -362,11 +418,19 @@ export default function SalesPage() {
 
         {/* MODE B: BULK SUMMARY ENTRY */}
         {entryMode === "summary" && (
-          <div className="card" style={{ padding: "20px", borderRadius: "16px", maxWidth: "600px", margin: "0 auto" }}>
-            <h3 style={{ marginTop: 0, marginBottom: "16px", fontSize: "1.1rem" }}>Record Daily Total Sales</h3>
-            <form onSubmit={handleSummarySubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+          <div className="card" style={{ padding: "20px", borderRadius: "16px", maxWidth: "650px", margin: "0 auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: "700" }}>📝 Bulk Sales & Menu Item Logging</h3>
+              {bulkTotalQty > 0 && (
+                <span style={{ fontSize: "0.8rem", background: "rgba(16,185,129,0.15)", color: "#10b981", padding: "4px 10px", borderRadius: "8px", fontWeight: "700" }}>
+                  {bulkTotalQty} Bowls · {formatCurrency(bulkCalculatedTotal)}
+                </span>
+              )}
+            </div>
+
+            <form onSubmit={handleSummarySubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <div>
-                <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Date</label>
+                <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Sales Date</label>
                 <input
                   type="date"
                   value={summaryDate}
@@ -376,8 +440,128 @@ export default function SalesPage() {
                 />
               </div>
 
+              {/* MENU ITEMS BULK QUANTITY SELECTION */}
+              <div style={{ background: "var(--bg-surface)", padding: "14px", borderRadius: "12px", border: "1px solid var(--border-color)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                  <label style={{ fontWeight: "700", fontSize: "0.9rem", color: "var(--text-primary)" }}>
+                    🍱 Enter Menu Quantities Sold Today
+                  </label>
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>Deducts Raw Material Stock</span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {skus.map((sku) => {
+                    const currentQty = bulkQuantities[sku.id] || 0;
+                    return (
+                      <div
+                        key={sku.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "10px",
+                          borderRadius: "10px",
+                          background: currentQty > 0 ? "rgba(16,185,129,0.08)" : "var(--bg-elevated)",
+                          border: currentQty > 0 ? "1px solid rgba(16,185,129,0.4)" : "1px solid var(--border-color)",
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: "700", fontSize: "0.9rem", color: "var(--text-primary)" }}>{sku.name}</div>
+                          <div style={{ fontSize: "0.75rem", color: "#10b981", fontWeight: "600" }}>{formatCurrency(sku.price)} each</div>
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <button
+                            type="button"
+                            onClick={() => updateBulkQty(sku.id, currentQty - 1)}
+                            style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border-color)", background: "var(--bg-tertiary)", cursor: "pointer", fontWeight: "bold", fontSize: "1rem" }}
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min="0"
+                            value={currentQty === 0 ? "" : currentQty}
+                            onChange={(e) => updateBulkQty(sku.id, e.target.value)}
+                            placeholder="0"
+                            style={{
+                              width: "55px",
+                              textAlign: "center",
+                              padding: "6px",
+                              borderRadius: "8px",
+                              border: "1px solid var(--border-color)",
+                              background: "var(--bg-surface)",
+                              color: "var(--text-primary)",
+                              fontWeight: "700",
+                              fontSize: "0.95rem",
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateBulkQty(sku.id, currentQty + 1)}
+                            style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border-color)", background: "var(--bg-tertiary)", cursor: "pointer", fontWeight: "bold", fontSize: "1rem" }}
+                          >
+                            +
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateBulkQty(sku.id, currentQty + 10)}
+                            style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid var(--border-color)", background: "var(--bg-tertiary)", cursor: "pointer", fontWeight: "600", fontSize: "0.75rem" }}
+                          >
+                            +10
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* PACKAGING OPTION */}
               <div>
-                <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Total Daily Sales Revenue (₹)</label>
+                <label style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--text-tertiary)", display: "block", marginBottom: "6px" }}>Bulk Packaging Option</label>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setBulkPackagingType("dine_in")}
+                    style={{
+                      flex: 1,
+                      padding: "10px",
+                      borderRadius: "8px",
+                      border: bulkPackagingType === "dine_in" ? "2px solid #10b981" : "1px solid var(--border-color)",
+                      background: bulkPackagingType === "dine_in" ? "rgba(16,185,129,0.15)" : "var(--bg-elevated)",
+                      color: "var(--text-primary)",
+                      fontWeight: "700",
+                      fontSize: "0.85rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    🍽️ Dine-In (Paper Bowl)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBulkPackagingType("parcel")}
+                    style={{
+                      flex: 1,
+                      padding: "10px",
+                      borderRadius: "8px",
+                      border: bulkPackagingType === "parcel" ? "2px solid #3b82f6" : "1px solid var(--border-color)",
+                      background: bulkPackagingType === "parcel" ? "rgba(59,130,246,0.15)" : "var(--bg-elevated)",
+                      color: "var(--text-primary)",
+                      fontWeight: "700",
+                      fontSize: "0.85rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    🛍️ Parcel (+₹6.90 Box)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>
+                  Total Daily Sales Revenue (₹) {bulkCalculatedTotal > 0 && <span style={{ color: "#10b981" }}>(Auto-calculated)</span>}
+                </label>
                 <input
                   type="number"
                   placeholder="e.g. 4500"
@@ -423,7 +607,7 @@ export default function SalesPage() {
               </div>
 
               <div>
-                <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Customer Count</label>
+                <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Customer / Bowl Count</label>
                 <input
                   type="number"
                   placeholder="e.g. 45"
@@ -436,7 +620,7 @@ export default function SalesPage() {
               <div>
                 <label style={{ fontWeight: "600", fontSize: "0.85rem", display: "block", marginBottom: "4px" }}>Notes / Remarks</label>
                 <textarea
-                  placeholder="e.g. Rush hour evening"
+                  placeholder="e.g. Bulk evening sale"
                   value={summaryNotes}
                   onChange={(e) => setSummaryNotes(e.target.value)}
                   rows="2"
@@ -444,8 +628,8 @@ export default function SalesPage() {
                 />
               </div>
 
-              <button type="submit" className="btn btn-primary" style={{ padding: "12px", borderRadius: "10px", fontSize: "0.95rem", fontWeight: "bold", cursor: "pointer" }}>
-                Save Daily Summary
+              <button type="submit" className="btn btn-primary" style={{ padding: "14px", borderRadius: "10px", fontSize: "1rem", fontWeight: "bold", cursor: "pointer" }}>
+                Save Bulk Sales & Deduct Raw Material Stock
               </button>
             </form>
           </div>
